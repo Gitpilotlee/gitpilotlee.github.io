@@ -194,3 +194,8 @@ body.dark .activity-beacon{animation-name:beacon-breathe-green}
 @media(max-width:700px){.hero-copy .hello-flow{height:125px;margin-top:28px}.hero-copy .hello-flow canvas{height:105px}}
 .summary-label{max-width:100%;white-space:normal}
 body.dark .lens-glass{border-color:#65d58b80;box-shadow:inset 2px 2px 7px #caffdb22,inset -2px -2px 8px #65d58b18,0 2px 10px #0003}
+/* Fill the left column's lower edge and dissolve every shared boundary. */
+.hero-copy .hello-flow{width:calc(100% + 40px);max-width:none;margin-left:-20px;margin-top:18px;height:225px;mask-image:none}
+.hero-copy .hello-flow canvas{height:225px;opacity:.88;mask-image:linear-gradient(to bottom,transparent 0%,#000 25%,#000 76%,transparent 100%),linear-gradient(to right,transparent 0%,#000 12%,#000 74%,transparent 100%);mask-composite:intersect}
+.hero-copy .hello-flow-label{display:none}
+@media(max-width:700px){.hero-copy .hello-flow{width:calc(100% + 20px);margin-left:-10px;height:185px;margin-top:16px}.hero-copy .hello-flow canvas{height:185px}}

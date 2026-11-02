@@ -522,7 +522,7 @@ document.querySelectorAll('details').forEach(details => {
       const sprite = sprites[(row + 4) % sprites.length];
       const offset = ((travel + row * 167) % period + period) % period;
       context.globalAlpha = row % 2 ? .48 : .78;
-      for (let repeat = -2; repeat <= 1; repeat++) context.drawImage(sprite, -offset + repeat * period, row * 57, sprite.width * 1.75, sprite.height * 1.75);
+      for (let repeat = -2; repeat <= 1; repeat++) context.drawImage(sprite, -offset + repeat * period, row * 57, sprite.width * 2.15, sprite.height * 2.15);
     }
     context.restore(); context.globalAlpha = 1;
     context.globalCompositeOperation = 'source-in'; context.fillStyle = color; context.fillRect(0, 0, width, height); context.globalCompositeOperation = 'source-over';
