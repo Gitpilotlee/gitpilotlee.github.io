@@ -248,3 +248,9 @@ body:not(.dark) .contact,body.dark .contact{position:relative;isolation:isolate;
 .filters button:hover,.filters button.active:hover,.refresh-activity:hover,body.dark .refresh-activity:hover{background:color-mix(in srgb,var(--lime) 8%,transparent)!important;color:var(--lime)!important;border-color:var(--lime)!important}
 .contact-mesh{opacity:.8;mask-image:linear-gradient(to bottom,transparent 10%,#000 35%,#000 80%,transparent 100%)}
 @media(max-width:700px){.filters{gap:8px}.filters button,.filters button.active,body.dark .filters button.active,.refresh-activity,body.dark .refresh-activity{padding:15px 18px;font-size:14px}.project-card h3{font-size:21px}.project-card .repo-meta{gap:14px}.project-tools{flex-wrap:wrap;gap:16px}}
+
+/* Compact secondary controls with a stable, balanced footprint. */
+.filters button,.filters button.active,body.dark .filters button.active,.refresh-activity,body.dark .refresh-activity{padding:10px 16px;font-size:15px;line-height:1.2;min-height:42px;text-decoration:none!important}
+.filters button{min-width:96px;text-align:center}.filters button.active{font-weight:650}
+.refresh-activity{min-width:112px}.filters{gap:10px}
+@media(max-width:700px){.filters button,.filters button.active,body.dark .filters button.active,.refresh-activity,body.dark .refresh-activity{padding:9px 13px;font-size:14px;min-height:40px}.filters button{min-width:88px}.refresh-activity{min-width:104px}.filters{gap:8px}}
