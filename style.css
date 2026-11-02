@@ -95,3 +95,19 @@ html.arrow-navigation{scroll-behavior:auto!important}.project-launch-arrow{displ
 @media(prefers-reduced-motion:reduce){.mug-scene.is-pouring,.mug-heat-glow,#projects.has-arrow-arrival::after{animation:none!important}.cup-visual .mug-scene img,.filter-droplet,.filters button{transition:none!important}.dark .mug-heat-glow{opacity:.1}.navigation-flight{display:none}}
 
 #projects.has-arrow-arrival::after{rotate:90deg}
+
+/* Latest annotations: quiet mug, smaller lens and truly connected liquid tabs. */
+.mug-scene[role="button"]{cursor:pointer;border-radius:16px;outline-offset:4px}.mug-scene.is-rocking{animation:cup-rock .95s cubic-bezier(.35,.1,.25,1)}
+@keyframes cup-rock{0%,100%{transform:rotate(0)}18%{transform:rotate(-7deg)}38%{transform:rotate(6deg)}58%{transform:rotate(-4deg)}78%{transform:rotate(2deg)}}
+.mug-heat-glow{display:none!important}.activity-panel .first-contribution::after{display:none!important}.activity-panel .first-contribution:not(:focus-visible):not(.inspected):not(.selected){outline:none;box-shadow:none}
+.calendar-inspector.cursor-lens{width:88px;height:88px;overflow:visible;border:0;background:transparent;box-shadow:none;backdrop-filter:none;filter:none}.calendar-inspector.cursor-lens::after{display:none}
+.lens-glass{position:absolute;inset:0;overflow:hidden;border-radius:50%;background:var(--bg);border:1px solid #8ba8db80;box-shadow:inset 2px 2px 7px #ffffff44,inset -2px -2px 8px #2563eb18,0 2px 10px #10245118}
+.lens-glass::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 25% 20%,#ffffff33,transparent 45%)}
+.lens-reticle{position:absolute;left:50%;top:50%;width:8px;height:8px;border:1.3px solid var(--ink);border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 1px #ffffff55;pointer-events:none;background:transparent}
+.lens-info{position:absolute;left:50%;top:50%;width:144px;height:144px;transform:translate(-50%,-50%);overflow:visible;opacity:0;pointer-events:none;transition:opacity .18s}.has-contribution .lens-info{opacity:1}.lens-info text{fill:var(--ink);font:10px "Courier New","Noto Sans SC",monospace;letter-spacing:.7px;paint-order:stroke;stroke:var(--bg);stroke-width:2.5px;stroke-linejoin:round}
+.calendar-day{transform:translate(var(--push-x,0),var(--push-y,0)) rotate(var(--jelly-angle,0deg)) scale(var(--cell-scale,1));transition:transform .5s cubic-bezier(.12,1.9,.38,1),box-shadow .2s}
+.cursor-lens .lens-copy .calendar-day{transform:translate(var(--push-x,0),var(--push-y,0)) rotate(var(--jelly-angle,0deg)) scale(var(--cell-scale,1))!important;transition:transform .5s cubic-bezier(.12,1.9,.38,1)!important}
+.filter-liquid-layer{position:absolute;inset:0;z-index:0;filter:url(#repo-filter-goo);pointer-events:none;overflow:visible}.filter-liquid-layer .filter-droplet,.filter-trailing-drop{position:absolute;z-index:auto;background:#2563eb;border-radius:13px;pointer-events:none;transform-origin:center;box-shadow:none;transition:none!important}.filter-trailing-drop[hidden]{display:none}.filters button{z-index:1}
+#projects.has-arrow-arrival::after,.navigation-flight{display:none!important}
+@media(max-width:700px){.calendar-inspector.cursor-lens{width:88px;height:88px}}
+@media(prefers-reduced-motion:reduce){.mug-scene.is-rocking{animation:none}.lens-info{transition:none}.calendar-day,.cursor-lens .lens-copy .calendar-day{transform:none!important;transition:none!important}}

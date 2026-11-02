@@ -15,17 +15,19 @@ function setTheme(dark) {
   theme.title = dark ? '切换为白天主题' : '切换为夜晚主题';
   document.querySelector('meta[name="theme-color"]').content = dark ? '#0b0f17' : '#ffffff';
 }
-try { const saved = localStorage.getItem('gitpilotlee-theme'); setTheme(saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches); }
-let mugThemeTimer;
-theme.addEventListener('click', () => {
-  clearTimeout(mugThemeTimer);
-  const mug = document.querySelector('.mug-scene');
-  mug?.classList.remove('is-pouring');
-  if (mug && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { void mug.offsetWidth; mug.classList.add('is-pouring'); mugThemeTimer = setTimeout(() => mug.classList.remove('is-pouring'), 1100); }
-  const dark = !document.body.classList.contains('dark');
-  setTheme(dark);
-  try { localStorage.setItem('gitpilotlee-theme', dark ? 'dark' : 'light'); } catch {}
-});
+// Each new visit starts in daylight; the toggle changes only this page session.
+setTheme(false);
+theme.addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
+const interactiveMug = document.querySelector('.mug-scene');
+let mugRockTimer;
+function rockMug() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  clearTimeout(mugRockTimer); interactiveMug.classList.remove('is-rocking');
+  void interactiveMug.offsetWidth; interactiveMug.classList.add('is-rocking');
+  mugRockTimer = setTimeout(() => interactiveMug.classList.remove('is-rocking'), 950);
+}
+interactiveMug.addEventListener('click', rockMug);
+interactiveMug.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); rockMug(); } });
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -222,31 +224,42 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   document.getElementById('calendar-inspector')?.remove();
   const calendar = scroll.querySelector('.calendar');
   const inspector = element('div', 'calendar-inspector cursor-lens'); inspector.id = 'calendar-inspector'; inspector.hidden = true; inspector.setAttribute('aria-hidden', 'true');
+  const glass = element('div', 'lens-glass');
   const copy = calendar.cloneNode(true); copy.classList.add('lens-copy'); copy.setAttribute('inert', '');
   copy.querySelectorAll('button').forEach(cell => { cell.tabIndex = -1; cell.removeAttribute('aria-label'); });
-  inspector.append(copy); document.body.append(inspector);
+  const center = element('span', 'lens-reticle');
+  const info = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); info.setAttribute('viewBox', '0 0 144 144'); info.setAttribute('class', 'lens-info');
+  info.innerHTML = '<defs><path id="lens-info-path" d="M72 17a55 55 0 1 1-.01 0"/></defs><text><textPath href="#lens-info-path" startOffset="0" textLength="336" lengthAdjust="spacingAndGlyphs"></textPath></text>';
+  const orbitText = info.querySelector('textPath');
+  const lensCells = Array.from(copy.querySelectorAll('.calendar-day'));
+  glass.append(copy); inspector.append(glass, center, info); document.body.append(inspector);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let active = -1, affected = [], raf = 0, pending = null;
   const reset = () => {
-    affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.classList.remove('inspected'); }); affected = [];
+    affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.style.removeProperty('--jelly-angle'); cell.classList.remove('inspected'); }); affected = [];
   };
   const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; scroll.classList.remove('lens-active'); active = -1; reset(); };
   const inspect = (index, x, y, pointer = false) => {
     if (active !== index) {
-      reset(); active = index;
+      reset(); active = index; inspector.classList.remove('has-contribution');
       if (index >= 0 && index < days.length) {
         const day = days[index], position = index + offset, column = Math.floor(position / 7), row = position % 7;
         document.getElementById('day-detail').textContent = `${day.date}：${day.count} 次贡献${cells[index].classList.contains('first-contribution') ? ' · 近一年首次贡献' : ''}`;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (day.count > 0) { inspector.classList.add('has-contribution'); orbitText.textContent = `${day.date} · ${day.count} 次贡献 · ${day.date} · ${day.count} 次贡献 ·`; } else orbitText.textContent = '';
+        for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
           const r = row + dy, c = column + dx, i = c * 7 + r - offset;
           if (r < 0 || r > 6 || c < 0 || i < 0 || i >= days.length) continue;
-          const cell = cells[i]; affected.push(cell);
-          if (!reduced.matches) { cell.style.setProperty('--push-x', `${dx * 2.5}px`); cell.style.setProperty('--push-y', `${dy * 2.5}px`); cell.style.setProperty('--cell-scale', dx === 0 && dy === 0 ? '1.12' : '.92'); }
+          const distance = Math.hypot(dx, dy); if (distance > 3.5) continue;
+          const strength = 1 - distance / 4;
+          for (const cell of [cells[i], lensCells[i]]) {
+            affected.push(cell);
+            if (!reduced.matches) { cell.style.setProperty('--push-x', `${dx * 4 * strength}px`); cell.style.setProperty('--push-y', `${dy * 4 * strength}px`); cell.style.setProperty('--cell-scale', dx === 0 && dy === 0 ? '1.12' : String(1 - .15 * strength)); cell.style.setProperty('--jelly-angle', `${dx * dy * strength * 1.5}deg`); }
+          }
         }
         cells[index].classList.add('inspected');
       }
     }
-    const rect = calendar.getBoundingClientRect(), zoom = 2.1, radius = 58;
+    const rect = calendar.getBoundingClientRect(), zoom = 1.9, radius = 44;
     copy.style.width = `${rect.width}px`; copy.style.minWidth = `${rect.width}px`;
     copy.style.transform = `translate(${radius - (x - rect.left) * zoom}px, ${radius - (y - rect.top) * zoom}px) scale(${zoom})`;
     inspector.style.left = `${x}px`; inspector.style.top = `${y}px`; inspector.hidden = false;
@@ -274,67 +287,38 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   grid.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
 
-// A single liquid indicator travels beneath the repository filters.
+// Two filtered droplets stretch into a bridge, detach and merge into the new tab.
 const filterGroup = document.querySelector('.filters');
-const filterDroplet = element('span', 'filter-droplet');
-filterDroplet.setAttribute('aria-hidden', 'true'); filterGroup.append(filterDroplet);
+const filterDefinition = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+filterDefinition.setAttribute('width', '0'); filterDefinition.setAttribute('height', '0'); filterDefinition.setAttribute('aria-hidden', 'true');
+filterDefinition.style.position = 'absolute';
+filterDefinition.innerHTML = '<defs><filter id="repo-filter-goo" x="-40%" y="-100%" width="180%" height="300%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="goo"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter></defs>';
+document.body.append(filterDefinition);
+const liquidLayer = element('span', 'filter-liquid-layer'); liquidLayer.setAttribute('aria-hidden', 'true');
+const filterDroplet = element('span', 'filter-droplet'); const trailingDroplet = element('span', 'filter-trailing-drop');
+liquidLayer.append(filterDroplet, trailingDroplet); filterGroup.append(liquidLayer);
+let liquidState = null, liquidFrame = 0;
+function paintDroplet(node, box, scale = 1) {
+  node.style.left = `${box.x}px`; node.style.top = `${box.y}px`; node.style.width = `${box.w}px`; node.style.height = `${box.h}px`; node.style.transform = `scale(${scale})`;
+}
 function moveFilterDroplet(button, animate = true) {
-  const box = filterGroup.getBoundingClientRect(), rect = button.getBoundingClientRect();
-  filterDroplet.style.left = `${rect.left - box.left}px`; filterDroplet.style.top = `${rect.top - box.top}px`;
-  filterDroplet.style.width = `${rect.width}px`; filterDroplet.style.height = `${rect.height}px`;
-  if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    filterDroplet.getAnimations().forEach(animation => animation.cancel());
-    filterDroplet.animate([{ transform: 'scale(1,1)', borderRadius: '12px' }, { transform: 'scale(1.23,.76)', borderRadius: '50% 35% 45% 30%' }, { transform: 'scale(.92,1.09)', borderRadius: '16px' }, { transform: 'scale(1,1)', borderRadius: '12px' }], { duration: 640, easing: 'cubic-bezier(.2,.8,.2,1)' });
-  }
+  cancelAnimationFrame(liquidFrame);
+  const parent = filterGroup.getBoundingClientRect(), rect = button.getBoundingClientRect();
+  const target = { x: rect.left - parent.left, y: rect.top - parent.top, w: rect.width, h: rect.height };
+  if (!animate || !liquidState || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { liquidState = target; paintDroplet(filterDroplet, target); trailingDroplet.hidden = true; return; }
+  const start = { ...liquidState }; const began = performance.now(); trailingDroplet.hidden = false;
+  const mix = (a, b, t) => a + (b - a) * t;
+  const tick = now => {
+    const t = Math.min(1, (now - began) / 740);
+    const lead = 1 - Math.pow(1 - t, 3), tail = Math.max(0, Math.min(1, (t - .25) / .75));
+    liquidState = { x: mix(start.x, target.x, lead), y: target.y, w: mix(start.w, target.w, lead), h: target.h };
+    paintDroplet(filterDroplet, liquidState, 1 + Math.sin(t * Math.PI) * .045);
+    const trail = { x: mix(start.x, target.x, tail * tail), y: target.y, w: start.w, h: target.h };
+    paintDroplet(trailingDroplet, trail, t < .38 ? 1 - t * .7 : Math.max(0, (1 - t) / .62 * .73));
+    if (t < 1) liquidFrame = requestAnimationFrame(tick); else { liquidState = target; paintDroplet(filterDroplet, target); trailingDroplet.hidden = true; }
+  };
+  liquidFrame = requestAnimationFrame(tick);
 }
 moveFilterDroplet(filterGroup.querySelector('.active'), false);
 new ResizeObserver(() => moveFilterDroplet(filterGroup.querySelector('.active'), false)).observe(filterGroup);
 document.fonts?.ready.then(() => moveFilterDroplet(filterGroup.querySelector('.active'), false));
-
-let cancelArrowNavigation = () => {};
-function launchArrowNavigation(event, type) {
-  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  event.preventDefault(); cancelArrowNavigation();
-  const target = type === 'projects' ? document.getElementById('projects') : document.querySelector('.nav');
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const startScroll = window.scrollY;
-  const targetTop = () => type === 'top' ? 0 : Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight, target.getBoundingClientRect().top + window.scrollY - 38));
-  const finish = () => {
-    if (type === 'projects') target.classList.add('has-arrow-arrival');
-    history.replaceState(null, '', type === 'projects' ? '#projects' : location.pathname + location.search);
-    target.setAttribute('tabindex', '-1'); target.focus({ preventScroll: true });
-  };
-  if (reduced) { window.scrollTo({ top: targetTop(), behavior: 'instant' }); finish(); return; }
-  const source = type === 'projects' ? event.currentTarget.querySelector('.project-launch-arrow') : event.currentTarget.querySelector('span');
-  const rect = source.getBoundingClientRect(), startX = rect.left + rect.width / 2, startY = rect.top + rect.height / 2;
-  const flight = element('div', `navigation-flight ${type === 'top' ? 'flight-up' : 'flight-diagonal'}`); flight.setAttribute('aria-hidden', 'true');
-  flight.innerHTML = type === 'top' ? '<svg viewBox="0 0 60 60" fill="none"><path d="M30 53V8M12 26 30 8l18 18"/></svg>' : '<svg viewBox="0 0 60 60" fill="none"><path d="M10 10 48 48M20 48h28V20"/></svg>';
-  document.body.append(flight); document.documentElement.classList.add('arrow-navigation');
-  event.currentTarget.classList.add('launching');
-  const link = event.currentTarget, controller = new AbortController(); let frame, stopped = false;
-  const cleanup = () => { stopped = true; cancelAnimationFrame(frame); flight.remove(); link.classList.remove('launching'); document.documentElement.classList.remove('arrow-navigation'); controller.abort(); };
-  cancelArrowNavigation = cleanup;
-  window.addEventListener('wheel', cleanup, { passive: true, signal: controller.signal });
-  window.addEventListener('touchstart', cleanup, { passive: true, signal: controller.signal });
-  window.addEventListener('keydown', cleanup, { signal: controller.signal });
-  const begun = performance.now(), duration = type === 'top' ? 980 : 1100;
-  const tick = now => {
-    if (stopped) return;
-    const t = Math.min(1, (now - begun) / duration), scrollT = Math.max(0, (t - .08) / .92), ease = 1 - Math.pow(1 - scrollT, 3);
-    window.scrollTo({ top: startScroll + (targetTop() - startScroll) * ease, behavior: 'instant' });
-    let x, y;
-    if (type === 'projects') {
-      const dest = target.getBoundingClientRect(), endX = dest.right - 26, endWorldY = dest.top + window.scrollY + 26;
-      const travel = t * t * (3 - 2 * t);
-      x = startX + (endX - startX) * travel;
-      y = startY + startScroll + (endWorldY - startY - startScroll) * travel - window.scrollY;
-    } else { x = startX; y = startY + (-85 - startY) * (t * t); }
-    const scale = t < .18 ? .35 + t / .18 * .95 : 1.3 - .6 * ((t - .18) / .82);
-    flight.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${scale})`;
-    flight.style.opacity = String(t > .88 ? (1 - t) / .12 : 1);
-    if (t < 1) frame = requestAnimationFrame(tick); else { cleanup(); finish(); }
-  };
-  frame = requestAnimationFrame(tick);
-}
-document.querySelector('.hero-actions .primary').addEventListener('click', event => launchArrowNavigation(event, 'projects'));
-document.querySelector('.back-to-top').addEventListener('click', event => launchArrowNavigation(event, 'top'));
