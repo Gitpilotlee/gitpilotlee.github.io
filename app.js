@@ -186,13 +186,13 @@ function renderContributions(days) {
   document.getElementById('monthly-details').hidden = false;
   revealWhenVisible(document.querySelector('.activity-panel')); 
 }
-async function loadActivity() {
+async function loadActivity({ force = false } = {}) {
   if (activityLoading) return;
   activityLoading = true; activityRefresh.disabled = true; activityRefresh.textContent = '读取中…';
-  activityStatus.textContent = '正在读取 GitHub 贡献日历…';
-  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 15000);
+  activityStatus.textContent = force ? '正在跳过缓存，读取 GitHub 最新贡献…' : '正在读取 GitHub 贡献日历…';
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), force ? 30000 : 15000);
   try {
-    const response = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=last`, { signal: controller.signal });
+    const response = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=last`, { signal: controller.signal, ...(force ? { headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' } : {}) });
     if (!response.ok) throw new Error('request');
     const data = await response.json();
     if (!Array.isArray(data.contributions)) throw new Error('format');
@@ -211,7 +211,7 @@ async function loadActivity() {
     activityStatus.textContent = document.querySelector('.calendar') ? '刷新失败，保留上次成功读取的数据。可稍后重试。' : '数据源暂时不可用。点击“刷新数据”重试，或查看 GitHub 原始记录。';
   } finally { clearTimeout(timer); activityLoading = false; activityRefresh.disabled = false; activityRefresh.textContent = '刷新数据 ↻'; }
 }
-activityRefresh.addEventListener('click', loadActivity);
+activityRefresh.addEventListener('click', () => loadActivity({ force: true }));
 loadActivity();
 
 // Reveal only when the visitor reaches the section; reduced-motion stays static.
