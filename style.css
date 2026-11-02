@@ -128,7 +128,7 @@ body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-c
 .calendar-scroll{overflow-x:auto;overflow-y:hidden}
 .calendar:not(.lens-copy){overflow:hidden}
 .calendar-grid{overflow:clip}
-/* Real type is the resting state; particles carry only the data transition. */
+/* Accessible text layer and live particle typography. */
 .particle-summary-solid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:50px;opacity:1;transition:opacity .18s ease;pointer-events:none}
 .summary-field{position:relative;min-width:0;padding-top:4px}
 .summary-value{display:block;font:500 42px/1 Arial,"Noto Sans SC",sans-serif;color:var(--ink);white-space:nowrap}
@@ -138,3 +138,24 @@ body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-c
 .particle-summary.is-morphing .particle-summary-canvas{opacity:1}
 @media(max-width:700px){.particle-summary-solid{gap:12px}.summary-value{font-size:32px}.summary-label{top:58px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.particle-summary-solid,.particle-summary-canvas{transition:none}.particle-summary-solid{opacity:1!important}.particle-summary-canvas{opacity:0!important}}
+
+/* Values remain particles after regrouping; labels always use crisp real type. */
+.particle-summary-canvas,.particle-summary.is-morphing .particle-summary-canvas{opacity:1!important}
+.particle-summary-solid,.particle-summary.is-morphing .particle-summary-solid{opacity:1!important}
+.particle-summary-solid .summary-value{visibility:hidden}
+.particle-summary-solid .summary-label{transition:color .3s ease}
+.month-value{position:relative;height:30px;width:64px;max-width:100%;overflow:visible}
+.month-number-canvas{display:block;position:absolute;left:50%;transform:translateX(-50%);width:64px;height:27px;pointer-events:none}
+.month-column{cursor:crosshair;border-radius:4px;transition:background .25s ease}
+.month-column.is-inspected{background:color-mix(in srgb,var(--heat2) 12%,transparent)}
+.month-bar{border-radius:3px 3px 0 0;transition:filter .25s ease,transform .35s ease;transform-origin:bottom}
+.month-column.is-inspected .month-bar{filter:brightness(1.12);transform:scaleX(1.12)}
+.calendar-day,.activity-legend i{transition:background-color .45s ease,transform .5s cubic-bezier(.12,1.9,.38,1),box-shadow .2s}
+.details-body{overflow:hidden}.details-inner{display:flow-root;padding-bottom:3px}
+.details-inner a{display:inline-block;margin-block:8px}
+.filters{overflow:visible}.filter-particles{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.filters button.active{color:var(--ink);text-shadow:0 0 3px var(--bg),0 0 5px var(--bg)}
+.filters button{transition:color .4s ease,text-shadow .4s ease}
+.filters button:hover,.filters button:focus-visible{color:var(--lime)}
+.project-list{transition:color .3s ease}
+@media(prefers-reduced-motion:reduce){.particle-summary-canvas{opacity:1!important}.particle-summary-solid .summary-value{visibility:hidden}.month-bar,.calendar-day,.filters button{transition:none}}

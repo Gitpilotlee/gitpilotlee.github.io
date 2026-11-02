@@ -71,7 +71,7 @@ document.querySelectorAll('[data-filter]').forEach(button => button.addEventList
     item.classList.toggle('active', item === button);
     item.setAttribute('aria-pressed', String(item === button));
   });
-  if (repositories.length) { render(); if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) list.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 350, easing: 'ease-out' }); }
+  if (repositories.length) { const from = list.getBoundingClientRect().height; render(); const to = list.getBoundingClientRect().height; if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) list.animate([{ height: `${from}px`, opacity: .3, overflow: 'hidden' }, { height: `${to}px`, opacity: 1, overflow: 'hidden' }], { duration: 450, easing: 'cubic-bezier(.22,.7,.25,1)' }); }
   moveFilterDroplet(button);
 }));
 async function loadProjects() {
@@ -106,6 +106,7 @@ const activityStatus = document.getElementById('activity-status');
 const activityRefresh = document.getElementById('refresh-activity');
 let activityLoading = false;
 let particleSummary = null;
+let monthlyParticles = [];
 function summarizeContributions(days) {
   const months = new Map();
   let total = 0, active = 0, streak = 0, longest = 0;
@@ -118,6 +119,9 @@ function summarizeContributions(days) {
   return { total, active, longest, months };
 }
 function renderContributions(days) {
+  // Derive intensity from actual counts so sparse years still show distinct levels.
+  const peak = Math.max(1, ...days.map(day => day.count));
+  days = days.map(day => ({ ...day, level: day.count === 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(day.count / peak * 4))) }));
   const stats = summarizeContributions(days);
   const summary = document.getElementById('activity-summary');
   summary.hidden = false;
@@ -143,7 +147,7 @@ function renderContributions(days) {
   for (let i = 0; i < offset; i++) { const blank = element('span', 'calendar-blank'); blank.setAttribute('aria-hidden', 'true'); grid.append(blank); }
   const cells = days.map((day, index) => {
     const cell = element('button', 'calendar-day');
-    cell.dataset.level = String(day.level); cell.tabIndex = index === days.length - 1 ? 0 : -1;
+    cell.dataset.level = String(day.level); cell.dataset.count = String(day.count); cell.tabIndex = index === days.length - 1 ? 0 : -1;
     const description = `${day.date}：${day.count} 次贡献`;
     cell.setAttribute('aria-label', description);
     cell.style.setProperty('--enter-delay', `${Math.floor((offset + index) / 7) * 16}ms`);
@@ -167,11 +171,18 @@ function renderContributions(days) {
   document.getElementById('day-detail').textContent = firstActive >= 0 ? `✦ 近一年首次贡献 · ${days[firstActive].date}：${days[firstActive].count} 次贡献` : '近一年暂无贡献记录。移动鼠标或使用方向键查看每日记录。';
   const monthly = document.getElementById('monthly-chart');
   const table = document.getElementById('monthly-table'); monthly.replaceChildren(); table.replaceChildren();
+  monthlyParticles.forEach(item => item.destroy()); monthlyParticles = [];
   const max = Math.max(1, ...stats.months.values());
   for (const [month, count] of stats.months) {
-    const column = element('div', 'month-column'); column.style.setProperty('--enter-delay', `${stats.months.size ? Array.from(stats.months.keys()).indexOf(month) * 65 : 0}ms`); column.title = `${month}：${count} 次贡献`;
+    const column = element('div', 'month-column'); column.style.setProperty('--enter-delay', `${stats.months.size ? Array.from(stats.months.keys()).indexOf(month) * 65 : 0}ms`); column.tabIndex = 0; column.setAttribute('aria-label', `${month}：${count} 次贡献`);
     const barTrack = element('div', 'month-track'); const bar = element('div', 'month-bar'); bar.style.height = `${count / max * 100}%`; barTrack.append(bar);
-    column.append(element('span', 'month-value', String(count)), barTrack, element('span', 'month-label', month.slice(5))); monthly.append(column);
+    const value = element('span', 'month-value');
+    column.append(value, barTrack, element('span', 'month-label', month.slice(5))); monthly.append(column);
+    const number = createMonthlyParticles(value, count); monthlyParticles.push(number);
+    const inspectMonth = () => { number.burst(); column.classList.add('is-inspected'); particleSummary?.select({ date: month, count, kind: 'month', active: days.filter(day => day.date.startsWith(month) && day.count > 0).length }); };
+    const leaveMonth = () => { column.classList.remove('is-inspected'); particleSummary?.select(null); };
+    column.addEventListener('pointerenter', inspectMonth); column.addEventListener('focus', inspectMonth);
+    column.addEventListener('pointerleave', leaveMonth); column.addEventListener('blur', leaveMonth);
     const row = element('tr'); row.append(element('th', '', month), element('td', '', String(count))); table.append(row);
   }
   document.getElementById('monthly-details').hidden = false;
@@ -284,41 +295,60 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   grid.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
 
-// Two filtered droplets stretch into a bridge, detach and merge into the new tab.
+// A resting particle cloud is attracted by hovered tabs; clicks transfer the entire cloud.
 const filterGroup = document.querySelector('.filters');
-const filterDefinition = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-filterDefinition.setAttribute('width', '0'); filterDefinition.setAttribute('height', '0'); filterDefinition.setAttribute('aria-hidden', 'true');
-filterDefinition.style.position = 'absolute';
-filterDefinition.innerHTML = '<defs><filter id="repo-filter-goo" x="-40%" y="-100%" width="180%" height="300%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" result="goo"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter></defs>';
-document.body.append(filterDefinition);
-const liquidLayer = element('span', 'filter-liquid-layer'); liquidLayer.setAttribute('aria-hidden', 'true');
-const filterDroplet = element('span', 'filter-droplet'); const trailingDroplet = element('span', 'filter-trailing-drop');
-liquidLayer.append(filterDroplet, trailingDroplet); filterGroup.append(liquidLayer);
-let liquidState = null, liquidFrame = 0;
-function paintDroplet(node, box, scale = 1) {
-  node.style.left = `${box.x}px`; node.style.top = `${box.y}px`; node.style.width = `${box.w}px`; node.style.height = `${box.h}px`; node.style.transform = `scale(${scale})`;
+const filterCanvas = element('canvas', 'filter-particles'); filterCanvas.setAttribute('aria-hidden', 'true'); filterGroup.append(filterCanvas);
+const filterContext = filterCanvas.getContext('2d');
+const filterReduced = matchMedia('(prefers-reduced-motion: reduce)');
+let filterCloud = [], filterFrame = 0, filterHovered = null, filterWidth = 0, filterHeight = 0;
+function filterBox(button) { return { x: button.offsetLeft, y: button.offsetTop, w: button.offsetWidth, h: button.offsetHeight }; }
+function assignFilterTargets() {
+  const box = filterBox(filterGroup.querySelector('.active')), hover = filterHovered && !filterHovered.classList.contains('active') ? filterBox(filterHovered) : null;
+  filterCloud.forEach((p, i) => {
+    const attracted = hover && i % 5 === 0;
+    const target = attracted ? hover : box;
+    p.tx = target.x + 6 + p.u * Math.max(1, target.w - 12); p.ty = target.y + 6 + p.v * Math.max(1, target.h - 12);
+    p.attracted = !!attracted;
+  });
 }
-function moveFilterDroplet(button, animate = true) {
-  cancelAnimationFrame(liquidFrame);
-  const parent = filterGroup.getBoundingClientRect(), rect = button.getBoundingClientRect();
-  const target = { x: rect.left - parent.left, y: rect.top - parent.top, w: rect.width, h: rect.height };
-  if (!animate || !liquidState || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { liquidState = target; paintDroplet(filterDroplet, target); trailingDroplet.hidden = true; return; }
-  const start = { ...liquidState }; const began = performance.now(); trailingDroplet.hidden = false;
-  const mix = (a, b, t) => a + (b - a) * t;
-  const tick = now => {
-    const t = Math.min(1, (now - began) / 740);
-    const lead = 1 - Math.pow(1 - t, 3), tail = Math.max(0, Math.min(1, (t - .25) / .75));
-    liquidState = { x: mix(start.x, target.x, lead), y: target.y, w: mix(start.w, target.w, lead), h: target.h };
-    paintDroplet(filterDroplet, liquidState, 1 + Math.sin(t * Math.PI) * .045);
-    const trail = { x: mix(start.x, target.x, tail * tail), y: target.y, w: start.w, h: target.h };
-    paintDroplet(trailingDroplet, trail, t < .38 ? 1 - t * .7 : Math.max(0, (1 - t) / .62 * .73));
-    if (t < 1) liquidFrame = requestAnimationFrame(tick); else { liquidState = target; paintDroplet(filterDroplet, target); trailingDroplet.hidden = true; }
-  };
-  liquidFrame = requestAnimationFrame(tick);
+function paintFilter(now) {
+  filterFrame = 0; if (!filterContext) return;
+  filterContext.clearRect(0, 0, filterWidth, filterHeight);
+  let energy = 0;
+  for (const p of filterCloud) {
+    if (filterReduced.matches) { p.x = p.tx; p.y = p.ty; } else {
+      p.vx = (p.vx + (p.tx - p.x) * .035) * .77; p.vy = (p.vy + (p.ty - p.y) * .035) * .77;
+      p.x += p.vx; p.y += p.vy;
+    }
+    energy += Math.abs(p.tx - p.x) + Math.abs(p.ty - p.y);
+    filterContext.fillStyle = p.attracted ? '#6097ff' : '#2563eb';
+    filterContext.globalAlpha = p.attracted ? .85 : .92;
+    filterContext.beginPath(); filterContext.arc(p.x, p.y, p.r, 0, Math.PI * 2); filterContext.fill();
+  }
+  filterContext.globalAlpha = 1;
+  if (energy > .12 * filterCloud.length && !filterReduced.matches) filterFrame = requestAnimationFrame(paintFilter);
 }
-moveFilterDroplet(filterGroup.querySelector('.active'), false);
-new ResizeObserver(() => moveFilterDroplet(filterGroup.querySelector('.active'), false)).observe(filterGroup);
-document.fonts?.ready.then(() => moveFilterDroplet(filterGroup.querySelector('.active'), false));
+function startFilter() { if (!filterFrame) filterFrame = requestAnimationFrame(paintFilter); }
+function moveFilterDroplet(button, animate = true) { // Called after the active tab changes.
+  assignFilterTargets(); if (!animate) filterCloud.forEach(p => { p.x = p.tx; p.y = p.ty; p.vx = p.vy = 0; }); startFilter();
+}
+function resizeFilter() {
+  filterWidth = filterGroup.clientWidth; filterHeight = filterGroup.clientHeight;
+  const dpr = Math.min(devicePixelRatio || 1, 2); filterCanvas.width = filterWidth * dpr; filterCanvas.height = filterHeight * dpr;
+  filterContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Dense enough to carry the selected label, visibly granular at the contour.
+  filterCloud = Array.from({ length: 650 }, (_, i) => ({ u: (i % 32) / 31, v: Math.floor(i / 32) / 20, x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: .9 + Math.random() * .5 }));
+  moveFilterDroplet(filterGroup.querySelector('.active'), false);
+}
+filterGroup.querySelectorAll('button').forEach(button => {
+  button.addEventListener('pointerenter', () => { filterHovered = button; assignFilterTargets(); startFilter(); });
+  button.addEventListener('focus', () => { filterHovered = button; assignFilterTargets(); startFilter(); });
+});
+filterGroup.addEventListener('pointerleave', () => { filterHovered = null; assignFilterTargets(); startFilter(); });
+filterGroup.addEventListener('focusout', event => { if (!filterGroup.contains(event.relatedTarget)) { filterHovered = null; assignFilterTargets(); startFilter(); } });
+new ResizeObserver(resizeFilter).observe(filterGroup);
+document.fonts?.ready.then(resizeFilter);
+resizeFilter();
 
 // Sample live text into dots, then spring the same particles into the new data.
 function createParticleSummary(container, stats) {
@@ -330,7 +360,7 @@ function createParticleSummary(container, stats) {
   const mask = document.createElement('canvas'), maskContext = mask.getContext('2d', { willReadFrequently: true });
   let selection = null, key = '', width = 0, height = 100, frame = 0, particles = [], disposed = false, visible = true, lastTime = 0;
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const fields = () => selection ? [[selection.date, '贡献日期'], [String(selection.count), '当天贡献'], ['活跃', '活动状态']] : [[String(stats.total), '年度贡献'], [String(stats.active), '活跃天数'], [String(stats.longest), '最长连续活跃 / 天']];
+  const fields = () => selection?.kind === 'month' ? [[selection.date, '贡献月份'], [String(selection.count), '月度贡献'], [String(selection.active), '活跃天数']] : selection ? [[selection.date, '贡献日期'], [String(selection.count), '当天贡献'], ['活跃', '活动状态']] : [[String(stats.total), '年度贡献'], [String(stats.active), '活跃天数'], [String(stats.longest), '最长连续活跃 / 天']];
   function paint() {
     if (!context) return;
     context.clearRect(0, 0, width, height);
@@ -338,7 +368,7 @@ function createParticleSummary(container, stats) {
     for (const p of particles) {
       if (p.alpha < .015) continue;
       context.globalAlpha = Math.max(0, Math.min(1, p.alpha)); context.fillStyle = p.label ? muted : ink;
-      context.beginPath(); context.arc(p.x, p.y, p.label ? .55 : .95, 0, Math.PI * 2); context.fill();
+      context.beginPath(); context.arc(p.x, p.y, p.label ? .55 : .72, 0, Math.PI * 2); context.fill();
     }
     context.globalAlpha = 1;
   }
@@ -360,7 +390,7 @@ function createParticleSummary(container, stats) {
   function regroup(force = false) {
     const nextKey = selection?.date || 'annual';
     if (!force && nextKey === key) return;
-    key = nextKey; container.dataset.mode = selection ? 'day' : 'annual';
+    key = nextKey; container.dataset.mode = selection?.kind === 'month' ? 'month' : selection ? 'day' : 'annual';
     const values = fields();
     solid.replaceChildren(...values.map(([value, label]) => { const field = element('div', 'summary-field'); field.append(element('strong', 'summary-value', value), element('span', 'summary-label', label)); return field; }));
     if (!reduced.matches) container.classList.add('is-morphing');
@@ -375,11 +405,11 @@ function createParticleSummary(container, stats) {
     const sampleText = (text, x, y, size, label) => {
       maskContext.clearRect(0, 0, width, height);
       maskContext.fillStyle = '#fff'; maskContext.textBaseline = 'top';
-      maskContext.font = `${label ? 400 : 500} ${size}px "Arial", "Noto Sans SC", sans-serif`;
+      maskContext.font = `${label ? 400 : 650} ${size}px "Arial", "Noto Sans SC", sans-serif`;
       const textWidth = maskContext.measureText(text).width;
-      if (textWidth > column - 4) { size *= (column - 4) / textWidth; maskContext.font = `${label ? 400 : 500} ${size}px "Arial", "Noto Sans SC", sans-serif`; }
+      if (textWidth > column - 4) { size *= (column - 4) / textWidth; maskContext.font = `${label ? 400 : 650} ${size}px "Arial", "Noto Sans SC", sans-serif`; }
       maskContext.fillText(text, x, y);
-      const pixels = maskContext.getImageData(0, 0, mask.width, height).data, step = label ? 1.1 : 2.1;
+      const pixels = maskContext.getImageData(0, 0, mask.width, height).data, step = label ? 1.1 : 1.75;
       for (let py = Math.max(0, y); py < Math.min(height, y + size * 1.45); py += step) {
         for (let px = x; px < Math.min(width, x + column); px += step) {
           const alpha = pixels[(Math.floor(py) * mask.width + Math.floor(px)) * 4 + 3];
@@ -393,7 +423,7 @@ function createParticleSummary(container, stats) {
       const measured = maskContext.measureText(value).width; if (measured > column - 4) size *= (column - 4) / measured;
       solid.children[index].querySelector('.summary-value').style.fontSize = `${size}px`;
       sampleText(value, x, 4, size, false);
-      sampleText(label, x, width < 500 ? 58 : 66, width < 500 ? 11 : 12, true);
+      // Labels stay real type; only the headline values are made of particles.
     });
     const oldLength = particles.length;
     targets.forEach((target, i) => {
@@ -411,7 +441,50 @@ function createParticleSummary(container, stats) {
   view?.observe(container);
   regroup(true);
   return {
-    select(day) { const next = day && day.count > 0 ? day : null; if ((next?.date || 'annual') === key) return; selection = next; regroup(); },
+    select(day) { const next = day && (day.kind === 'month' || day.count > 0) ? day : null; if ((next?.date || 'annual') === key) return; selection = next; regroup(); },
     destroy() { disposed = true; cancelAnimationFrame(frame); resize.disconnect(); themeChange.disconnect(); view?.disconnect(); }
   };
 }
+
+// Compact dot typography for monthly counts, with a brief regroup on inspection.
+function createMonthlyParticles(host, count) {
+  const canvas = element('canvas', 'month-number-canvas'); canvas.setAttribute('aria-hidden', 'true');
+  const readable = element('span', 'particle-summary-readable', String(count)); host.append(canvas, readable);
+  const context = canvas.getContext('2d'), mask = document.createElement('canvas'), maskContext = mask.getContext('2d', { willReadFrequently: true });
+  let points = [], frame = 0, began = 0, disposed = false;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  function paint(now = performance.now()) {
+    frame = 0; if (disposed || !context) return;
+    const t = reduced.matches ? 1 : Math.min(1, (now - began) / 600), ease = 1 - Math.pow(1 - t, 3);
+    context.clearRect(0, 0, 64, 27); context.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink').trim();
+    points.forEach(p => { context.beginPath(); context.arc(p.x + p.dx * (1 - ease), p.y + p.dy * (1 - ease), .64, 0, Math.PI * 2); context.fill(); });
+    if (t < 1) frame = requestAnimationFrame(paint);
+  }
+  if (context && maskContext) {
+    const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = 64 * dpr; canvas.height = 27 * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    mask.width = 64; mask.height = 27; maskContext.font = '700 19px Arial'; maskContext.textAlign = 'center'; maskContext.textBaseline = 'middle'; maskContext.fillText(String(count), 32, 13);
+    const pixels = maskContext.getImageData(0, 0, 64, 27).data;
+    for (let y = 2; y < 25; y += 1.55) for (let x = 0; x < 64; x += 1.55) if (pixels[(Math.floor(y) * 64 + Math.floor(x)) * 4 + 3] > 100) points.push({ x, y, dx: (Math.random() - .5) * 20, dy: (Math.random() - .5) * 15 });
+    paint();
+  } else { canvas.hidden = true; readable.className = ''; }
+  const themeObserver = new MutationObserver(() => paint()); themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  return { burst() { cancelAnimationFrame(frame); began = performance.now(); paint(began); }, destroy() { disposed = true; cancelAnimationFrame(frame); themeObserver.disconnect(); } };
+}
+
+// Animate measured content height in both directions; monthly rows unfold in steps.
+document.querySelectorAll('details').forEach(details => {
+  const summary = details.querySelector('summary'), body = element('div', 'details-body'), inner = element('div', 'details-inner');
+  [...details.children].filter(child => child !== summary).forEach(child => inner.append(child)); body.append(inner); details.append(body);
+  let animation = null, expanded = details.open;
+  summary.setAttribute('aria-expanded', String(expanded));
+  summary.addEventListener('click', event => {
+    event.preventDefault(); expanded = !expanded;
+    const from = details.open ? body.getBoundingClientRect().height : 0;
+    animation?.cancel(); details.open = true; summary.setAttribute('aria-expanded', String(expanded));
+    const to = expanded ? inner.getBoundingClientRect().height : 0;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { details.open = expanded; return; }
+    if (expanded) inner.querySelectorAll('tbody tr').forEach((row, index) => row.animate([{ opacity: 0, transform: 'translateY(-9px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 300, delay: index * 32, fill: 'backwards', easing: 'cubic-bezier(.2,.7,.2,1)' }));
+    animation = body.animate([{ height: `${from}px`, opacity: expanded ? .35 : 1 }, { height: `${to}px`, opacity: expanded ? 1 : 0 }], { duration: expanded && details.id === 'monthly-details' ? 700 : 380, easing: 'cubic-bezier(.22,.7,.25,1)', fill: 'both' });
+    animation.onfinish = () => { details.open = expanded; animation.cancel(); animation = null; };
+  });
+});
