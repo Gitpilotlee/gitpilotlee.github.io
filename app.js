@@ -56,7 +56,6 @@ function render() {
     card.target = '_blank'; card.rel = 'noopener noreferrer';
     const header = element('header'); header.append(element('h3', '', repo.name));
     if (repo.fork) header.append(element('span', 'fork-badge', 'FORK'));
-    header.append(element('span', 'arrow', '↗'));
     const meta = element('div', 'repo-meta');
     if (repo.language) meta.append(element('span', '', '● ' + repo.language));
     meta.append(element('span', '', '☆ ' + repo.stargazers_count), element('span', '', '⑂ ' + repo.forks_count));
@@ -72,7 +71,6 @@ document.querySelectorAll('[data-filter]').forEach(button => button.addEventList
     item.setAttribute('aria-pressed', String(item === button));
   });
   if (repositories.length) { const from = list.getBoundingClientRect().height; render(); const to = list.getBoundingClientRect().height; if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) list.animate([{ height: `${from}px`, opacity: .3, overflow: 'hidden' }, { height: `${to}px`, opacity: 1, overflow: 'hidden' }], { duration: 450, easing: 'cubic-bezier(.22,.7,.25,1)' }); }
-  moveFilterDroplet(button);
 }));
 async function loadProjects() {
   if (loading) return;
@@ -295,63 +293,6 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   grid.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
 
-// A resting particle cloud is attracted by hovered tabs; clicks transfer the entire cloud.
-const filterGroup = document.querySelector('.filters');
-const filterCanvas = element('canvas', 'filter-particles'); filterCanvas.setAttribute('aria-hidden', 'true'); filterGroup.append(filterCanvas);
-const filterContext = filterCanvas.getContext('2d');
-const filterReduced = matchMedia('(prefers-reduced-motion: reduce)');
-let filterCloud = [], filterFrame = 0, filterHovered = null, filterWidth = 0, filterHeight = 0;
-function filterBox(button) { return { x: button.offsetLeft, y: button.offsetTop, w: button.offsetWidth, h: button.offsetHeight }; }
-function assignFilterTargets() {
-  const box = filterBox(filterGroup.querySelector('.active')), hover = filterHovered && !filterHovered.classList.contains('active') ? filterBox(filterHovered) : null;
-  filterCloud.forEach((p, i) => {
-    const attracted = hover && i % 5 === 0;
-    const target = attracted ? hover : box;
-    p.tx = target.x + 6 + p.u * Math.max(1, target.w - 12); p.ty = target.y + 6 + p.v * Math.max(1, target.h - 12);
-    p.attracted = !!attracted;
-  });
-}
-function paintFilter(now) {
-  filterFrame = 0; if (!filterContext) return;
-  filterContext.clearRect(0, 0, filterWidth, filterHeight);
-  const themeColors = getComputedStyle(document.body), cloudColor = themeColors.getPropertyValue('--lime').trim(), attractColor = themeColors.getPropertyValue('--particle-attract').trim();
-  let energy = 0;
-  for (const p of filterCloud) {
-    if (filterReduced.matches) { p.x = p.tx; p.y = p.ty; } else {
-      p.vx = (p.vx + (p.tx - p.x) * .035) * .77; p.vy = (p.vy + (p.ty - p.y) * .035) * .77;
-      p.x += p.vx; p.y += p.vy;
-    }
-    energy += Math.abs(p.tx - p.x) + Math.abs(p.ty - p.y);
-    filterContext.fillStyle = p.attracted ? attractColor : cloudColor;
-    filterContext.globalAlpha = p.attracted ? .85 : .92;
-    filterContext.beginPath(); filterContext.arc(p.x, p.y, p.r, 0, Math.PI * 2); filterContext.fill();
-  }
-  filterContext.globalAlpha = 1;
-  if (energy > .12 * filterCloud.length && !filterReduced.matches) filterFrame = requestAnimationFrame(paintFilter);
-}
-function startFilter() { if (!filterFrame) filterFrame = requestAnimationFrame(paintFilter); }
-function moveFilterDroplet(button, animate = true) { // Called after the active tab changes.
-  assignFilterTargets(); if (!animate) filterCloud.forEach(p => { p.x = p.tx; p.y = p.ty; p.vx = p.vy = 0; }); startFilter();
-}
-function resizeFilter() {
-  filterWidth = filterGroup.clientWidth; filterHeight = filterGroup.clientHeight;
-  const dpr = Math.min(devicePixelRatio || 1, 2); filterCanvas.width = filterWidth * dpr; filterCanvas.height = filterHeight * dpr;
-  filterContext?.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // Dense enough to carry the selected label, visibly granular at the contour.
-  filterCloud = Array.from({ length: 650 }, (_, i) => ({ u: (i % 32) / 31, v: Math.floor(i / 32) / 20, x: 0, y: 0, tx: 0, ty: 0, vx: 0, vy: 0, r: .9 + Math.random() * .5 }));
-  moveFilterDroplet(filterGroup.querySelector('.active'), false);
-}
-filterGroup.querySelectorAll('button').forEach(button => {
-  button.addEventListener('pointerenter', () => { filterHovered = button; assignFilterTargets(); startFilter(); });
-  button.addEventListener('focus', () => { filterHovered = button; assignFilterTargets(); startFilter(); });
-});
-filterGroup.addEventListener('pointerleave', () => { filterHovered = null; assignFilterTargets(); startFilter(); });
-filterGroup.addEventListener('focusout', event => { if (!filterGroup.contains(event.relatedTarget)) { filterHovered = null; assignFilterTargets(); startFilter(); } });
-new ResizeObserver(resizeFilter).observe(filterGroup);
-document.fonts?.ready.then(resizeFilter);
-resizeFilter();
-new MutationObserver(startFilter).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
 // Sample live text into dots, then spring the same particles into the new data.
 function createParticleSummary(container, stats) {
   const canvas = element('canvas', 'particle-summary-canvas'); canvas.setAttribute('aria-hidden', 'true');
@@ -559,32 +500,43 @@ document.querySelectorAll('details:not(.language-source)').forEach(details => {
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && !panel.hidden) { hide(); trigger.focus(); } });
 })();
 
-// A quiet dune of sand moves under the contact copy, never above the text.
-(function installContactSand() {
-  const section = document.getElementById('contact'), canvas = element('canvas', 'contact-sand'); canvas.setAttribute('aria-hidden', 'true'); section.prepend(canvas);
+// A connected particle cloth rolls in waves behind the contact copy.
+(function installContactMesh() {
+  const section = document.getElementById('contact'), canvas = element('canvas', 'contact-sand contact-mesh'); canvas.setAttribute('aria-hidden', 'true'); section.prepend(canvas);
   const context = canvas.getContext('2d'); if (!context) return;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  let width = 0, height = 0, grains = [], frame = 0, visible = false, last = 0, time = 0, color = '', pointer = null;
+  let width = 0, height = 0, frame = 0, visible = false, last = 0, time = 0, color = '', pointer = null;
   function paint(now) {
     frame = 0; if (!visible) return;
     if (!reduced.matches && last) time += Math.min(50, now - last) / 1000; last = now;
-    context.clearRect(0, 0, width, height); context.fillStyle = color;
-    for (const grain of grains) {
-      let x = (grain.u * width + time * (5 + grain.depth * 12)) % width;
-      const crest = height * (.56 + Math.sin(x / width * 7 + time * .22) * .11 + Math.cos(x / width * 12 - time * .14) * .035);
-      let y = grain.air ? grain.depth * height : crest + grain.depth * (height - crest);
-      if (pointer && !reduced.matches) { const dx = x - pointer.x, dy = y - pointer.y, distance = Math.hypot(dx, dy); if (distance < 95 && distance > 0) { const force = (1 - distance / 95) * 20; x += dx / distance * force; y += dy / distance * force; } }
-      context.globalAlpha = grain.alpha; context.beginPath(); context.arc(x, y, grain.r, 0, Math.PI * 2); context.fill();
+    context.clearRect(0, 0, width, height); context.strokeStyle = context.fillStyle = color;
+    const columns = width < 600 ? 34 : 66, rows = 20, mesh = [];
+    for (let row = 0; row < rows; row++) {
+      const depth = row / (rows - 1), points = [];
+      for (let col = 0; col <= columns; col++) {
+        const u = col / columns;
+        let x = u * (width + 50) - 25 + Math.sin(depth * 5 + time * .35) * 12;
+        let y = height * (.39 + depth * .55) + Math.sin(u * 8 - time * .7 + depth * 4) * (17 + depth * 19) + Math.cos(u * 13 + depth * 6 + time * .36) * 9;
+        if (pointer && !reduced.matches) { const dx = x - pointer.x, dy = y - pointer.y, distance = Math.hypot(dx, dy); if (distance < 110 && distance > 0) y += (1 - distance / 110) * 18; }
+        points.push({ x, y });
+      } mesh.push(points);
+    }
+    context.lineWidth = .55;
+    for (let row = 0; row < rows; row++) {
+      context.globalAlpha = .08 + row / rows * .13;
+      context.beginPath(); mesh[row].forEach((p, i) => i ? context.lineTo(p.x, p.y) : context.moveTo(p.x, p.y)); context.stroke();
+    }
+    context.globalAlpha = .12;
+    for (let col = 0; col <= columns; col++) { context.beginPath(); mesh.forEach((points, row) => row ? context.lineTo(points[col].x, points[col].y) : context.moveTo(points[col].x, points[col].y)); context.stroke(); }
+    for (let row = 0; row < rows; row++) {
+      context.globalAlpha = .3 + row / rows * .32;
+      mesh[row].forEach(p => { context.beginPath(); context.arc(p.x, p.y, .75 + row / rows * .45, 0, Math.PI * 2); context.fill(); });
     }
     context.globalAlpha = 1;
     if (!reduced.matches) frame = requestAnimationFrame(paint);
   }
   function start() { if (visible && !frame) { last = 0; frame = requestAnimationFrame(paint); } }
-  const resize = new ResizeObserver(() => {
-    const rect = section.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); width = rect.width; height = rect.height;
-    canvas.width = width * dpr; canvas.height = height * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    grains = Array.from({ length: width < 600 ? 1300 : 2800 }, () => ({ u: Math.random(), depth: Math.random(), air: Math.random() < .13, alpha: .12 + Math.random() * .48, r: .45 + Math.random() * .75 })); start();
-  }); resize.observe(section);
+  new ResizeObserver(() => { const rect = section.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); width = rect.width; height = rect.height; canvas.width = width * dpr; canvas.height = height * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0); start(); }).observe(section);
   function themeColor() { color = getComputedStyle(document.body).getPropertyValue('--lime').trim(); start(); }
   new MutationObserver(themeColor).observe(document.body, { attributes: true, attributeFilter: ['class'] }); themeColor();
   new IntersectionObserver(entries => { visible = entries[0].isIntersecting; if (visible) start(); else { cancelAnimationFrame(frame); frame = 0; last = 0; } }).observe(section);
