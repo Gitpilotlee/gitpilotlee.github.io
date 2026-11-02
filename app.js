@@ -324,7 +324,8 @@ document.fonts?.ready.then(() => moveFilterDroplet(filterGroup.querySelector('.a
 function createParticleSummary(container, stats) {
   const canvas = element('canvas', 'particle-summary-canvas'); canvas.setAttribute('aria-hidden', 'true');
   const readable = element('div', 'particle-summary-readable'); readable.setAttribute('role', 'status'); readable.setAttribute('aria-live', 'polite');
-  container.replaceChildren(canvas, readable); container.classList.add('particle-summary');
+  const solid = element('div', 'particle-summary-solid'); solid.setAttribute('aria-hidden', 'true');
+  container.replaceChildren(canvas, solid, readable); container.classList.add('particle-summary');
   const context = canvas.getContext('2d');
   const mask = document.createElement('canvas'), maskContext = mask.getContext('2d', { willReadFrequently: true });
   let selection = null, key = '', width = 0, height = 100, frame = 0, particles = [], disposed = false, visible = true, lastTime = 0;
@@ -353,14 +354,17 @@ function createParticleSummary(container, stats) {
     }
     paint();
     if (energy > .18 * Math.max(1, particles.length)) frame = requestAnimationFrame(tick);
-    else { particles = particles.filter(p => p.targetAlpha > 0); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = p.targetAlpha; p.vx = p.vy = 0; }); paint(); }
+    else { particles = particles.filter(p => p.targetAlpha > 0); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = p.targetAlpha; p.vx = p.vy = 0; }); paint(); container.classList.remove('is-morphing'); }
   }
   function start() { if (!frame && visible && !disposed) { lastTime = 0; frame = requestAnimationFrame(tick); } }
   function regroup(force = false) {
     const nextKey = selection?.date || 'annual';
     if (!force && nextKey === key) return;
     key = nextKey; container.dataset.mode = selection ? 'day' : 'annual';
-    const values = fields(); readable.textContent = values.map(([value, label]) => `${label}：${value}`).join('；');
+    const values = fields();
+    solid.replaceChildren(...values.map(([value, label]) => { const field = element('div', 'summary-field'); field.append(element('strong', 'summary-value', value), element('span', 'summary-label', label)); return field; }));
+    if (!reduced.matches) container.classList.add('is-morphing');
+    readable.textContent = values.map(([value, label]) => `${label}：${value}`).join('；');
     width = Math.max(1, container.clientWidth); height = width < 500 ? 90 : 100;
     canvas.style.height = `${height}px`; const dpr = Math.min(devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
@@ -385,7 +389,10 @@ function createParticleSummary(container, stats) {
     };
     values.forEach(([value, label], index) => {
       const x = index * (column + gap);
-      sampleText(value, x, 4, width < 500 ? 32 : 42, false);
+      let size = width < 500 ? 32 : 42; maskContext.font = `500 ${size}px Arial`;
+      const measured = maskContext.measureText(value).width; if (measured > column - 4) size *= (column - 4) / measured;
+      solid.children[index].querySelector('.summary-value').style.fontSize = `${size}px`;
+      sampleText(value, x, 4, size, false);
       sampleText(label, x, width < 500 ? 58 : 66, width < 500 ? 11 : 12, true);
     });
     const oldLength = particles.length;
@@ -396,7 +403,7 @@ function createParticleSummary(container, stats) {
       if (!reduced.matches && oldLength > 0) { p.vx += (Math.random() - .5) * 4; p.vy += (Math.random() - .5) * 4; }
     });
     for (let i = targets.length; i < particles.length; i++) { particles[i].targetAlpha = 0; particles[i].tx = particles[i].x + (Math.random() - .5) * 60; particles[i].ty = particles[i].y - 20; }
-    if (reduced.matches) { particles = particles.slice(0, targets.length); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = 1; }); paint(); } else start();
+    if (reduced.matches) { particles = particles.slice(0, targets.length); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = 1; }); paint(); container.classList.remove('is-morphing'); } else start();
   }
   const resize = new ResizeObserver(() => { const nextWidth = Math.max(1, container.clientWidth); if (Math.abs(nextWidth - width) > 1) regroup(true); }); resize.observe(container);
   const themeChange = new MutationObserver(paint); themeChange.observe(document.body, { attributes: true, attributeFilter: ['class'] });

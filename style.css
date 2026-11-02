@@ -123,3 +123,18 @@ body.dark .month-bar{background:var(--heat3)}body.dark .calendar-day.inspected{o
 body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-color:#9be6ac}
 .lens-info{display:none!important}
 @media(max-width:700px){.cup-hero .hero-layout{display:flex;flex-direction:column;gap:32px;align-items:stretch;padding-top:18px}.cup-hero .cup-visual{order:-1;margin-top:0}.cup-hero .hero-copy{order:0;align-self:stretch}.cup-hero .mug-scene{width:100%;max-width:340px;margin-inline:auto}.cup-hero .cup-visual figcaption{margin-top:-4px}.cup-hero .hero-copy h1{font-size:76px}.cup-hero .hero-copy .intro{margin-top:22px}#activity .activity-summary.particle-summary{min-height:90px}.calendar-day,.calendar-blank,.cursor-lens .calendar-day{border-radius:2.5px}}
+
+/* Jelly transforms stay inside the calendar's own scrollable width. */
+.calendar-scroll{overflow-x:auto;overflow-y:hidden}
+.calendar:not(.lens-copy){overflow:hidden}
+.calendar-grid{overflow:clip}
+/* Real type is the resting state; particles carry only the data transition. */
+.particle-summary-solid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:50px;opacity:1;transition:opacity .18s ease;pointer-events:none}
+.summary-field{position:relative;min-width:0;padding-top:4px}
+.summary-value{display:block;font:500 42px/1 Arial,"Noto Sans SC",sans-serif;color:var(--ink);white-space:nowrap}
+.summary-label{position:absolute;top:66px;left:0;font:400 12px/1.4 Arial,"Noto Sans SC",sans-serif;color:var(--muted);white-space:nowrap}
+.particle-summary-canvas{opacity:0;transition:opacity .18s ease}
+.particle-summary.is-morphing .particle-summary-solid{opacity:0}
+.particle-summary.is-morphing .particle-summary-canvas{opacity:1}
+@media(max-width:700px){.particle-summary-solid{gap:12px}.summary-value{font-size:32px}.summary-label{top:58px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.particle-summary-solid,.particle-summary-canvas{transition:none}.particle-summary-solid{opacity:1!important}.particle-summary-canvas{opacity:0!important}}
