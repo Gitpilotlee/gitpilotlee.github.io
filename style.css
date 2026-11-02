@@ -207,3 +207,30 @@ body.dark .lens-glass{border-color:#65d58b80;box-shadow:inset 2px 2px 7px #caffd
 body.dark .hero-copy .hello-flow canvas{opacity:.18}
 @media(max-width:1000px) and (min-width:701px){.hero-copy .hello-flow{width:calc((100% - 30px) / 2.05 + 24px)}}
 @media(max-width:700px){.cup-hero .hero-copy{position:relative;isolation:isolate}.hero-copy .hello-flow{left:-10px;top:-20px;bottom:-24px;width:calc(100% + 20px);height:auto;margin:0}.hero-copy .hello-flow canvas{height:100%}}
+
+/* Comfortable reading sizes across prose and supporting information. */
+body{font-size:18px}.cup-hero .hero-copy .intro,.about-bottom p{font-size:19px;line-height:1.95}
+.section-heading p,.project-card p,.contact>p,.contact-bottom{font-size:18px;line-height:1.8}
+.nav nav,.text-link,.small-link,.cup-hero .hero-copy .text-link{font-size:17px}
+.activity-note,.activity-status,.day-detail,.repo-meta,.project-footnote,#monthly-details{font-size:15px;line-height:1.9}
+.cup-visual figcaption,.cup-kicker,.language-source,.activity-panel-top,.activity-legend,.monthly-heading>span{font-size:14px}
+.calendar-months,.month-label{font-size:13px}.summary-label{font-size:15px}.section-index,.hero-top,.cup-hero .hero-top{font-size:13px}
+.filters button{font-size:16px}.retry,.refresh-activity{font-size:14px}
+.month-value{width:auto;height:30px;min-height:30px;font:500 17px/1.5 Arial,sans-serif;color:var(--ink)}
+#activity .month-track{max-width:36px;height:114px}.month-bar,body.dark .month-bar{position:relative;background:transparent;overflow:visible;min-height:0}
+.month-bar-canvas{width:100%;height:100%;display:block;pointer-events:none}.month-column.is-inspected .month-bar{filter:none}
+/* Horizontal repository layout with an open left gutter. */
+#projects{grid-template-columns:minmax(0,1fr);gap:30px}#projects .projects-content{margin-left:clamp(30px,6vw,90px);min-width:0}
+.project-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 42px;align-items:start}
+.project-list .project-state{grid-column:1/-1}.project-card{min-width:0;height:100%;padding-block:30px;border-bottom:1px solid var(--line)}
+.project-card:last-child{border-bottom:1px solid var(--line)}.project-card h3{font-size:23px;overflow-wrap:anywhere}
+body:not(.dark) .cup-hero .hero-copy .primary,body.dark .cup-hero .hero-copy .primary{background:transparent;border:2px solid var(--lime);border-radius:0;color:var(--lime);font-size:16px;box-shadow:none}
+body:not(.dark) .cup-hero .hero-copy .primary:hover,body.dark .cup-hero .hero-copy .primary:hover{background:color-mix(in srgb,var(--lime) 8%,transparent);border-color:var(--lime)}
+/* A floating note does not change the cup's layout. */
+.language-source{position:relative;z-index:5}.source-trigger{border:0;background:none;padding:10px 8px;color:var(--muted);font:inherit;line-height:1.6}.source-trigger:hover{color:var(--lime)}
+.source-popover{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 48px));padding:20px 22px;background:var(--white);color:var(--ink);border:1px solid var(--line);box-shadow:0 12px 40px #00000015;border-radius:8px;text-align:left;z-index:10}
+.source-popover[hidden]{display:none}.language-source .source-popover p{font:16px/1.85 Arial,"Noto Sans SC",sans-serif;margin:0 0 12px;padding:0;background:none;border:0}.source-popover a{font-size:14px;line-height:1.7}
+body:not(.dark) .contact,body.dark .contact{position:relative;isolation:isolate;overflow:hidden;background:transparent;border:0;border-radius:0;box-shadow:none;padding:58px 45px 64px;color:var(--ink)}
+.contact-sand{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1;opacity:.65;mask-image:linear-gradient(to bottom,transparent,#000 28%,#000 82%,transparent)}
+.contact-title{position:relative;border-color:var(--line);font-size:clamp(52px,7.1vw,98px)}.contact-bottom{position:relative}.contact .section-index{color:var(--lime)}
+@media(max-width:700px){.cup-hero .hero-copy .intro,.about-bottom p{font-size:18px}.section-heading p,.project-card p,.contact>p{font-size:17px}.nav nav{font-size:15px}.activity-note,.activity-status,.day-detail,.repo-meta,.project-footnote,#monthly-details{font-size:14px}.activity-panel-top,.activity-legend{font-size:12px}.summary-label{font-size:12px}.filters button{font-size:14px}.cup-hero .hero-top{font-size:10px}.cup-visual figcaption,.cup-kicker{font-size:13px}.calendar-months{font-size:12px}.month-label{font-size:11px}.month-value{font-size:15px}#projects .projects-content{margin-left:12px}.project-list{grid-template-columns:1fr;gap:0}.contact-bottom{font-size:16px}body:not(.dark) .contact,body.dark .contact{padding:40px 16px 48px}.source-popover{padding:18px}.language-source .source-popover p{font-size:15px}.source-trigger{font-size:14px}}

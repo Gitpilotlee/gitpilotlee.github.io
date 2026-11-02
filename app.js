@@ -176,9 +176,9 @@ function renderContributions(days) {
   for (const [month, count] of stats.months) {
     const column = element('div', 'month-column'); column.style.setProperty('--enter-delay', `${stats.months.size ? Array.from(stats.months.keys()).indexOf(month) * 65 : 0}ms`); column.tabIndex = 0; column.setAttribute('aria-label', `${month}：${count} 次贡献`);
     const barTrack = element('div', 'month-track'); const bar = element('div', 'month-bar'); bar.style.height = `${count / max * 100}%`; barTrack.append(bar);
-    const value = element('span', 'month-value');
+    const value = element('span', 'month-value', String(count));
     column.append(value, barTrack, element('span', 'month-label', month.slice(5))); monthly.append(column);
-    const number = createMonthlyParticles(value, count); monthlyParticles.push(number);
+    const number = createMonthlyParticles(bar, count); monthlyParticles.push(number);
     const inspectMonth = () => { number.burst(); column.classList.add('is-inspected'); particleSummary?.select({ date: month, count, kind: 'month', active: days.filter(day => day.date.startsWith(month) && day.count > 0).length }); };
     const leaveMonth = () => { column.classList.remove('is-inspected'); particleSummary?.select(null); };
     column.addEventListener('pointerenter', inspectMonth); column.addEventListener('focus', inspectMonth);
@@ -448,33 +448,32 @@ function createParticleSummary(container, stats) {
   };
 }
 
-// Compact dot typography for monthly counts, with a brief regroup on inspection.
+// Monthly bars are built from particles; their labels remain ordinary type.
 function createMonthlyParticles(host, count) {
-  const canvas = element('canvas', 'month-number-canvas'); canvas.setAttribute('aria-hidden', 'true');
-  const readable = element('span', 'particle-summary-readable', String(count)); host.append(canvas, readable);
-  const context = canvas.getContext('2d'), mask = document.createElement('canvas'), maskContext = mask.getContext('2d', { willReadFrequently: true });
-  let points = [], frame = 0, began = 0, disposed = false;
+  const canvas = element('canvas', 'month-bar-canvas'); canvas.setAttribute('aria-hidden', 'true'); host.append(canvas);
+  const context = canvas.getContext('2d');
+  let points = [], frame = 0, began = 0, width = 0, height = 0, disposed = false;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   function paint(now = performance.now()) {
     frame = 0; if (disposed || !context) return;
-    const t = reduced.matches ? 1 : Math.min(1, (now - began) / 600), ease = 1 - Math.pow(1 - t, 3);
-    context.clearRect(0, 0, 64, 27); context.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink').trim();
-    points.forEach(p => { context.beginPath(); context.arc(p.x + p.dx * (1 - ease), p.y + p.dy * (1 - ease), .64, 0, Math.PI * 2); context.fill(); });
+    const t = reduced.matches ? 1 : Math.min(1, (now - began) / 750), ease = 1 - Math.pow(1 - t, 3);
+    context.clearRect(0, 0, width, height); context.fillStyle = getComputedStyle(document.body).getPropertyValue('--lime').trim();
+    points.forEach(p => { context.globalAlpha = p.alpha; context.beginPath(); context.arc(p.x + p.dx * (1 - ease), p.y + p.dy * (1 - ease), p.r, 0, Math.PI * 2); context.fill(); }); context.globalAlpha = 1;
     if (t < 1) frame = requestAnimationFrame(paint);
   }
-  if (context && maskContext) {
-    const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = 64 * dpr; canvas.height = 27 * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    mask.width = 64; mask.height = 27; maskContext.font = '700 19px Arial'; maskContext.textAlign = 'center'; maskContext.textBaseline = 'middle'; maskContext.fillText(String(count), 32, 13);
-    const pixels = maskContext.getImageData(0, 0, 64, 27).data;
-    for (let y = 2; y < 25; y += 1.55) for (let x = 0; x < 64; x += 1.55) if (pixels[(Math.floor(y) * 64 + Math.floor(x)) * 4 + 3] > 100) points.push({ x, y, dx: (Math.random() - .5) * 20, dy: (Math.random() - .5) * 15 });
-    paint();
-  } else { canvas.hidden = true; readable.className = ''; }
+  function resize() {
+    width = host.clientWidth; height = host.clientHeight; if (!context) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2); canvas.width = Math.max(1, width * dpr); canvas.height = Math.max(1, height * dpr); context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    points = [];
+    for (let y = 1.5; y < height; y += 3.3) for (let x = 1.5; x < width; x += 3.3) points.push({ x: x + Math.random() * .5, y, dx: (Math.random() - .5) * 18, dy: Math.random() * 25, r: .75 + Math.random() * .4, alpha: .55 + Math.random() * .45 }); paint();
+  }
+  const observer = new ResizeObserver(resize); observer.observe(host);
   const themeObserver = new MutationObserver(() => paint()); themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  return { burst() { cancelAnimationFrame(frame); began = performance.now(); paint(began); }, destroy() { disposed = true; cancelAnimationFrame(frame); themeObserver.disconnect(); } };
+  return { burst() { cancelAnimationFrame(frame); began = performance.now(); paint(began); }, destroy() { disposed = true; cancelAnimationFrame(frame); observer.disconnect(); themeObserver.disconnect(); } };
 }
 
 // Animate measured content height in both directions; monthly rows unfold in steps.
-document.querySelectorAll('details').forEach(details => {
+document.querySelectorAll('details:not(.language-source)').forEach(details => {
   const summary = details.querySelector('summary'), body = element('div', 'details-body'), inner = element('div', 'details-inner');
   [...details.children].filter(child => child !== summary).forEach(child => inner.append(child)); body.append(inner); details.append(body);
   let animation = null, expanded = details.open;
@@ -536,5 +535,59 @@ document.querySelectorAll('details').forEach(details => {
   }); resize.observe(canvas);
   new MutationObserver(updateColor).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   new IntersectionObserver(entries => { visible = entries[0].isIntersecting; if (visible) start(); else { cancelAnimationFrame(frame); frame = 0; last = 0; } }).observe(canvas);
+  reduced.addEventListener('change', () => { cancelAnimationFrame(frame); frame = 0; start(); });
+})();
+
+// Source information floats above its trigger, leaving the cup in place.
+(function installSourcePopover() {
+  const root = document.querySelector('.language-source'), trigger = root.querySelector('.source-trigger'), panel = root.querySelector('.source-popover');
+  let closeTimer = 0, animation = null, pinned = false;
+  function show() {
+    clearTimeout(closeTimer); if (!panel.hidden) return;
+    animation?.cancel(); panel.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) animation = panel.animate([{ opacity: 0, transform: 'translate(-50%, 9px)' }, { opacity: 1, transform: 'translate(-50%, 0)' }], { duration: 240, easing: 'ease-out' });
+  }
+  function hide() {
+    clearTimeout(closeTimer); pinned = false; animation?.cancel(); panel.hidden = true; trigger.setAttribute('aria-expanded', 'false');
+  }
+  trigger.addEventListener('click', () => { if (pinned) hide(); else { show(); pinned = true; } });
+  root.addEventListener('pointerenter', event => { if (event.pointerType !== 'touch') show(); });
+  root.addEventListener('pointerleave', () => { if (!pinned) closeTimer = setTimeout(hide, 180); });
+  root.addEventListener('focusin', event => { if (event.target !== trigger) show(); });
+  root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) hide(); });
+  document.addEventListener('pointerdown', event => { if (!root.contains(event.target)) hide(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !panel.hidden) { hide(); trigger.focus(); } });
+})();
+
+// A quiet dune of sand moves under the contact copy, never above the text.
+(function installContactSand() {
+  const section = document.getElementById('contact'), canvas = element('canvas', 'contact-sand'); canvas.setAttribute('aria-hidden', 'true'); section.prepend(canvas);
+  const context = canvas.getContext('2d'); if (!context) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let width = 0, height = 0, grains = [], frame = 0, visible = false, last = 0, time = 0, color = '', pointer = null;
+  function paint(now) {
+    frame = 0; if (!visible) return;
+    if (!reduced.matches && last) time += Math.min(50, now - last) / 1000; last = now;
+    context.clearRect(0, 0, width, height); context.fillStyle = color;
+    for (const grain of grains) {
+      let x = (grain.u * width + time * (5 + grain.depth * 12)) % width;
+      const crest = height * (.56 + Math.sin(x / width * 7 + time * .22) * .11 + Math.cos(x / width * 12 - time * .14) * .035);
+      let y = grain.air ? grain.depth * height : crest + grain.depth * (height - crest);
+      if (pointer && !reduced.matches) { const dx = x - pointer.x, dy = y - pointer.y, distance = Math.hypot(dx, dy); if (distance < 95 && distance > 0) { const force = (1 - distance / 95) * 20; x += dx / distance * force; y += dy / distance * force; } }
+      context.globalAlpha = grain.alpha; context.beginPath(); context.arc(x, y, grain.r, 0, Math.PI * 2); context.fill();
+    }
+    context.globalAlpha = 1;
+    if (!reduced.matches) frame = requestAnimationFrame(paint);
+  }
+  function start() { if (visible && !frame) { last = 0; frame = requestAnimationFrame(paint); } }
+  const resize = new ResizeObserver(() => {
+    const rect = section.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); width = rect.width; height = rect.height;
+    canvas.width = width * dpr; canvas.height = height * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    grains = Array.from({ length: width < 600 ? 1300 : 2800 }, () => ({ u: Math.random(), depth: Math.random(), air: Math.random() < .13, alpha: .12 + Math.random() * .48, r: .45 + Math.random() * .75 })); start();
+  }); resize.observe(section);
+  function themeColor() { color = getComputedStyle(document.body).getPropertyValue('--lime').trim(); start(); }
+  new MutationObserver(themeColor).observe(document.body, { attributes: true, attributeFilter: ['class'] }); themeColor();
+  new IntersectionObserver(entries => { visible = entries[0].isIntersecting; if (visible) start(); else { cancelAnimationFrame(frame); frame = 0; last = 0; } }).observe(section);
+  section.addEventListener('pointermove', event => { const rect = section.getBoundingClientRect(); pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top }; }); section.addEventListener('pointerleave', () => { pointer = null; });
   reduced.addEventListener('change', () => { cancelAnimationFrame(frame); frame = 0; start(); });
 })();
