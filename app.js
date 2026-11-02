@@ -13,11 +13,9 @@ function setTheme(dark) {
   theme.setAttribute('aria-pressed', String(dark));
   theme.textContent = dark ? '☾' : '☀';
   theme.title = dark ? '切换为白天主题' : '切换为夜晚主题';
-  document.querySelector('meta[name="theme-color"]').content = dark ? '#080c18' : '#edf5ee';
-  document.getElementById('scene-name').textContent = dark ? 'NIGHT SHIFT / 像素观测站' : 'DAY SHIFT / 像素观测站';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#0b0f17' : '#ffffff';
 }
 try { const saved = localStorage.getItem('gitpilotlee-theme'); setTheme(saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches); }
-for (const path of ['assets/pixel-observatory.png', 'assets/pixel-observatory-day.png']) { const image = new Image(); image.src = path; }
 theme.addEventListener('click', () => {
   const dark = !document.body.classList.contains('dark');
   setTheme(dark);

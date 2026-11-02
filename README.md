@@ -1,6 +1,6 @@
 # Gitpilotlee 个人主页
 
-像素观测站个人网站，支持白天 / 夜晚主题和近 365 天 GitHub 贡献趋势。
+白色亮釉陶瓷杯个人网站，白天采用白色与蓝色按钮，支持深浅主题和近 365 天 GitHub 贡献趋势。
 
 网站：部署完成后为 https://gitpilotlee.github.io/
 
@@ -15,6 +15,8 @@
 - index.html：个人介绍和区块结构
 - style.css：日夜主题与布局
 - app.js：仓库、贡献记录、主题切换
-- assets/：原创像素日夜背景
+- assets/language-heat-mug.png：原创陶瓷杯图片
+
+杯身为 TypeScript、Python、JavaScript 的艺术热力图，依据 GitHub Octoverse 2026；点击页面上的语言热度依据可查看来源。
 
 贡献趋势来源为 GitHub Contributions API，包含符合 GitHub 规则的提交、PR、Issue 等活动，可能缓存约一小时。
