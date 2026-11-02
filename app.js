@@ -16,7 +16,12 @@ function setTheme(dark) {
   document.querySelector('meta[name="theme-color"]').content = dark ? '#0b0f17' : '#ffffff';
 }
 try { const saved = localStorage.getItem('gitpilotlee-theme'); setTheme(saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches); } catch { setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches); }
+let mugThemeTimer;
 theme.addEventListener('click', () => {
+  clearTimeout(mugThemeTimer);
+  const mug = document.querySelector('.mug-scene');
+  mug?.classList.remove('is-pouring');
+  if (mug && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) { void mug.offsetWidth; mug.classList.add('is-pouring'); mugThemeTimer = setTimeout(() => mug.classList.remove('is-pouring'), 1100); }
   const dark = !document.body.classList.contains('dark');
   setTheme(dark);
   try { localStorage.setItem('gitpilotlee-theme', dark ? 'dark' : 'light'); } catch {}
@@ -64,7 +69,8 @@ document.querySelectorAll('[data-filter]').forEach(button => button.addEventList
     item.classList.toggle('active', item === button);
     item.setAttribute('aria-pressed', String(item === button));
   });
-  if (repositories.length) render();
+  if (repositories.length) { render(); if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) list.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 350, easing: 'ease-out' }); }
+  moveFilterDroplet(button);
 }));
 async function loadProjects() {
   if (loading) return;
@@ -214,52 +220,37 @@ let cleanupCalendarInspector = () => {};
 function installCalendarInspector(scroll, grid, cells, days, offset) {
   cleanupCalendarInspector();
   document.getElementById('calendar-inspector')?.remove();
-  const inspector = element('div', 'calendar-inspector'); inspector.id = 'calendar-inspector'; inspector.hidden = true; inspector.setAttribute('aria-hidden', 'true');
-  const lens = element('div', 'inspector-lens');
-  const sample = Array.from({ length: 9 }, () => element('i'));
-  lens.append(...sample);
-  const label = element('div', 'inspector-label');
-  const dateLabel = element('strong'); const countLabel = element('span'); label.append(dateLabel, countLabel);
-  inspector.append(lens, label); document.body.append(inspector);
+  const calendar = scroll.querySelector('.calendar');
+  const inspector = element('div', 'calendar-inspector cursor-lens'); inspector.id = 'calendar-inspector'; inspector.hidden = true; inspector.setAttribute('aria-hidden', 'true');
+  const copy = calendar.cloneNode(true); copy.classList.add('lens-copy'); copy.setAttribute('inert', '');
+  copy.querySelectorAll('button').forEach(cell => { cell.tabIndex = -1; cell.removeAttribute('aria-label'); });
+  inspector.append(copy); document.body.append(inspector);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let active = -1, affected = [], raf = 0, pending = null;
   const reset = () => {
-    affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.classList.remove('inspected'); });
-    affected = [];
+    affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.classList.remove('inspected'); }); affected = [];
   };
-  const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; active = -1; reset(); };
-  const inspect = (index, x, y) => {
-    if (index < 0 || index >= days.length) { hide(); return; }
+  const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; scroll.classList.remove('lens-active'); active = -1; reset(); };
+  const inspect = (index, x, y, pointer = false) => {
     if (active !== index) {
       reset(); active = index;
-      const day = days[index]; const position = index + offset;
-      const column = Math.floor(position / 7), row = position % 7;
-      dateLabel.textContent = day.date;
-      countLabel.textContent = `${day.count} 次贡献${cells[index].classList.contains('first-contribution') ? ' · 首次贡献' : ''}`;
-      document.getElementById('day-detail').textContent = `${day.date}：${day.count} 次贡献`;
-      let n = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const otherRow = row + dy, otherColumn = column + dx;
-          const otherIndex = otherColumn * 7 + otherRow - offset;
-          const valid = otherRow >= 0 && otherRow < 7 && otherColumn >= 0 && otherIndex >= 0 && otherIndex < days.length;
-          const dot = sample[n++]; dot.dataset.level = valid ? String(days[otherIndex].level) : 'empty';
-          dot.classList.toggle('center', dx === 0 && dy === 0);
-          if (valid) {
-            const cell = cells[otherIndex]; affected.push(cell);
-            if (!reduced.matches) {
-              cell.style.setProperty('--push-x', `${dx * 3}px`);
-              cell.style.setProperty('--push-y', `${dy * 3}px`);
-              cell.style.setProperty('--cell-scale', dx === 0 && dy === 0 ? '1.38' : '.88');
-            }
-          }
+      if (index >= 0 && index < days.length) {
+        const day = days[index], position = index + offset, column = Math.floor(position / 7), row = position % 7;
+        document.getElementById('day-detail').textContent = `${day.date}：${day.count} 次贡献${cells[index].classList.contains('first-contribution') ? ' · 近一年首次贡献' : ''}`;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const r = row + dy, c = column + dx, i = c * 7 + r - offset;
+          if (r < 0 || r > 6 || c < 0 || i < 0 || i >= days.length) continue;
+          const cell = cells[i]; affected.push(cell);
+          if (!reduced.matches) { cell.style.setProperty('--push-x', `${dx * 2.5}px`); cell.style.setProperty('--push-y', `${dy * 2.5}px`); cell.style.setProperty('--cell-scale', dx === 0 && dy === 0 ? '1.12' : '.92'); }
         }
+        cells[index].classList.add('inspected');
       }
-      cells[index].classList.add('inspected');
     }
-    inspector.hidden = false;
-    inspector.style.left = `${Math.max(8, Math.min(window.innerWidth - 190, x + 21))}px`;
-    inspector.style.top = `${Math.max(8, Math.min(window.innerHeight - 138, y - 105))}px`;
+    const rect = calendar.getBoundingClientRect(), zoom = 2.1, radius = 58;
+    copy.style.width = `${rect.width}px`; copy.style.minWidth = `${rect.width}px`;
+    copy.style.transform = `translate(${radius - (x - rect.left) * zoom}px, ${radius - (y - rect.top) * zoom}px) scale(${zoom})`;
+    inspector.style.left = `${x}px`; inspector.style.top = `${y}px`; inspector.hidden = false;
+    if (pointer) scroll.classList.add('lens-active');
   };
   scroll.addEventListener('pointermove', event => {
     if (event.pointerType === 'touch') return;
@@ -267,23 +258,83 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0; if (!pending) return;
-      const { x, y } = pending; const rect = grid.getBoundingClientRect();
-      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) { hide(); return; }
+      const { x, y } = pending, bounds = calendar.getBoundingClientRect(), rect = grid.getBoundingClientRect();
+      if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) { hide(); return; }
       const columns = Math.ceil((offset + days.length) / 7);
-      const col = Math.min(columns - 1, Math.floor((x - rect.left) / (rect.width / columns)));
-      const row = Math.min(6, Math.floor((y - rect.top) / (rect.height / 7)));
-      inspect(col * 7 + row - offset, x, y);
+      const col = Math.max(0, Math.min(columns - 1, Math.floor((x - rect.left) / (rect.width / columns))));
+      const row = Math.max(0, Math.min(6, Math.floor((y - rect.top) / (rect.height / 7))));
+      inspect(y < rect.top ? -1 : col * 7 + row - offset, x, y, true);
     });
   });
-  window.addEventListener('scroll', hide, { passive: true });
-  window.addEventListener('resize', hide, { passive: true });
+  window.addEventListener('scroll', hide, { passive: true }); window.addEventListener('resize', hide, { passive: true });
   cleanupCalendarInspector = () => { hide(); window.removeEventListener('scroll', hide); window.removeEventListener('resize', hide); };
-  scroll.addEventListener('pointerleave', hide);
-  scroll.addEventListener('scroll', hide, { passive: true });
-  grid.addEventListener('focusin', event => {
-    const index = cells.indexOf(event.target);
-    if (index >= 0) { const rect = cells[index].getBoundingClientRect(); inspect(index, rect.right, rect.top); }
-  });
+  scroll.addEventListener('pointerleave', hide); scroll.addEventListener('scroll', hide, { passive: true });
+  grid.addEventListener('focusin', event => { const index = cells.indexOf(event.target); if (index >= 0 && !scroll.classList.contains('lens-active')) { const rect = cells[index].getBoundingClientRect(); inspect(index, rect.left + rect.width / 2, rect.top + rect.height / 2); } });
   grid.addEventListener('focusout', event => { if (!grid.contains(event.relatedTarget)) hide(); });
   grid.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
+
+// A single liquid indicator travels beneath the repository filters.
+const filterGroup = document.querySelector('.filters');
+const filterDroplet = element('span', 'filter-droplet');
+filterDroplet.setAttribute('aria-hidden', 'true'); filterGroup.append(filterDroplet);
+function moveFilterDroplet(button, animate = true) {
+  const box = filterGroup.getBoundingClientRect(), rect = button.getBoundingClientRect();
+  filterDroplet.style.left = `${rect.left - box.left}px`; filterDroplet.style.top = `${rect.top - box.top}px`;
+  filterDroplet.style.width = `${rect.width}px`; filterDroplet.style.height = `${rect.height}px`;
+  if (animate && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    filterDroplet.getAnimations().forEach(animation => animation.cancel());
+    filterDroplet.animate([{ transform: 'scale(1,1)', borderRadius: '12px' }, { transform: 'scale(1.23,.76)', borderRadius: '50% 35% 45% 30%' }, { transform: 'scale(.92,1.09)', borderRadius: '16px' }, { transform: 'scale(1,1)', borderRadius: '12px' }], { duration: 640, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+}
+moveFilterDroplet(filterGroup.querySelector('.active'), false);
+new ResizeObserver(() => moveFilterDroplet(filterGroup.querySelector('.active'), false)).observe(filterGroup);
+document.fonts?.ready.then(() => moveFilterDroplet(filterGroup.querySelector('.active'), false));
+
+let cancelArrowNavigation = () => {};
+function launchArrowNavigation(event, type) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault(); cancelArrowNavigation();
+  const target = type === 'projects' ? document.getElementById('projects') : document.querySelector('.nav');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const startScroll = window.scrollY;
+  const targetTop = () => type === 'top' ? 0 : Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight, target.getBoundingClientRect().top + window.scrollY - 38));
+  const finish = () => {
+    if (type === 'projects') target.classList.add('has-arrow-arrival');
+    history.replaceState(null, '', type === 'projects' ? '#projects' : location.pathname + location.search);
+    target.setAttribute('tabindex', '-1'); target.focus({ preventScroll: true });
+  };
+  if (reduced) { window.scrollTo({ top: targetTop(), behavior: 'instant' }); finish(); return; }
+  const source = type === 'projects' ? event.currentTarget.querySelector('.project-launch-arrow') : event.currentTarget.querySelector('span');
+  const rect = source.getBoundingClientRect(), startX = rect.left + rect.width / 2, startY = rect.top + rect.height / 2;
+  const flight = element('div', `navigation-flight ${type === 'top' ? 'flight-up' : 'flight-diagonal'}`); flight.setAttribute('aria-hidden', 'true');
+  flight.innerHTML = type === 'top' ? '<svg viewBox="0 0 60 60" fill="none"><path d="M30 53V8M12 26 30 8l18 18"/></svg>' : '<svg viewBox="0 0 60 60" fill="none"><path d="M10 10 48 48M20 48h28V20"/></svg>';
+  document.body.append(flight); document.documentElement.classList.add('arrow-navigation');
+  event.currentTarget.classList.add('launching');
+  const link = event.currentTarget, controller = new AbortController(); let frame, stopped = false;
+  const cleanup = () => { stopped = true; cancelAnimationFrame(frame); flight.remove(); link.classList.remove('launching'); document.documentElement.classList.remove('arrow-navigation'); controller.abort(); };
+  cancelArrowNavigation = cleanup;
+  window.addEventListener('wheel', cleanup, { passive: true, signal: controller.signal });
+  window.addEventListener('touchstart', cleanup, { passive: true, signal: controller.signal });
+  window.addEventListener('keydown', cleanup, { signal: controller.signal });
+  const begun = performance.now(), duration = type === 'top' ? 980 : 1100;
+  const tick = now => {
+    if (stopped) return;
+    const t = Math.min(1, (now - begun) / duration), scrollT = Math.max(0, (t - .08) / .92), ease = 1 - Math.pow(1 - scrollT, 3);
+    window.scrollTo({ top: startScroll + (targetTop() - startScroll) * ease, behavior: 'instant' });
+    let x, y;
+    if (type === 'projects') {
+      const dest = target.getBoundingClientRect(), endX = dest.right - 26, endWorldY = dest.top + window.scrollY + 26;
+      const travel = t * t * (3 - 2 * t);
+      x = startX + (endX - startX) * travel;
+      y = startY + startScroll + (endWorldY - startY - startScroll) * travel - window.scrollY;
+    } else { x = startX; y = startY + (-85 - startY) * (t * t); }
+    const scale = t < .18 ? .35 + t / .18 * .95 : 1.3 - .6 * ((t - .18) / .82);
+    flight.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${scale})`;
+    flight.style.opacity = String(t > .88 ? (1 - t) / .12 : 1);
+    if (t < 1) frame = requestAnimationFrame(tick); else { cleanup(); finish(); }
+  };
+  frame = requestAnimationFrame(tick);
+}
+document.querySelector('.hero-actions .primary').addEventListener('click', event => launchArrowNavigation(event, 'projects'));
+document.querySelector('.back-to-top').addEventListener('click', event => launchArrowNavigation(event, 'top'));
