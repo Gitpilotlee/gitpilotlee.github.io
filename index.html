@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Gitpilotlee 的个人主页。探索公开项目，在 GitHub 继续交流。">
+  <meta name="theme-color" content="#080c18">
+  <title>Gitpilotlee — 个人主页</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23c7ef65'/%3E%3Ctext x='12' y='44' font-family='monospace' font-size='38' font-weight='bold'%3EG.%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body class="dark">
+  <a class="skip" href="#projects">跳转到项目</a>
+  <header class="nav wrap">
+    <a class="wordmark" href="#" aria-label="Gitpilotlee 首页">G<span class="dot">.</span><span class="wordmark-name">gitpilotlee</span></a>
+    <nav aria-label="主导航"><a href="#about">关于</a><a href="#activity">年度活动</a><a href="#projects">项目</a><a href="#contact">联系</a></nav>
+    <button class="theme" id="theme" aria-label="切换深色模式" title="切换主题">◐</button>
+  </header>
+  <main>
+    <section class="hero wrap pixel-hero" aria-labelledby="hero-title">
+      <div class="hero-top"><span class="eyebrow"><i></i> A PERSONAL SPACE ON THE WEB</span><span class="edition">HELLO, WORLD. / 001</span></div>
+      <div class="hero-layout">
+        <div class="hero-copy"><p class="hello">你好，我是 Gitman</p><h1 id="hero-title">Gitpilot<span>lee<span class="accent">.</span></span></h1><p class="intro">从一个想法，到下一次提交。<br>这里是我的个人空间，也是通往 GitHub 的起点。</p><div class="hero-actions"><a class="button primary" href="#projects">探索公开项目 <span>↘</span></a><a class="text-link" href="https://github.com/Gitpilotlee" target="_blank" rel="noopener noreferrer">GitHub 主页 ↗</a></div></div>
+        <div class="scene-caption"><span class="scene-signal">✦</span><span><span id="scene-name">NIGHT SHIFT / 像素观测站</span><br><small>把好奇心，写进下一次提交。</small></span></div>
+      </div>
+      <div class="hero-bottom"><span>PERSONAL HOMEPAGE / GITPILOTLEE</span><a href="#about">向下探索 ↓</a></div>
+    </section>
+    <section class="about section wrap" id="about"><div class="section-index">01 / ABOUT</div><div class="about-content"><h2>代码之外，<br>还有持续探索的好奇心<span class="accent">。</span></h2><div class="about-bottom"><p>我是 Gitman，在 GitHub 上使用 Gitpilotlee 这个名字。这里收录我的公开项目与代码入口，欢迎来看看，也期待新的交流。</p><a class="small-link" href="https://github.com/Gitpilotlee?tab=repositories" target="_blank" rel="noopener noreferrer">在 GitHub 认识我 <span>↗</span></a></div></div></section>
+    <section class="activity section wrap" id="activity"><div class="section-index">02 / ACTIVITY LOG</div><div class="activity-content"><div class="section-heading"><div><h2>近一年提交与贡献<span class="accent">。</span></h2><p>每一格，是一天的积累。</p></div><button class="refresh-activity" id="refresh-activity">刷新数据 ↻</button></div><div class="activity-panel"><div class="activity-panel-top"><span class="terminal-tag">▸ GITPILOTLEE / CONTRIBUTIONS</span><span id="activity-range">最近 365 天</span></div><div id="activity-summary" class="activity-summary" hidden></div><div id="activity-chart" aria-live="polite"><p class="activity-placeholder">正在读取 GitHub 近一年贡献记录…</p></div><div id="day-detail" class="day-detail">加载后，点击方格可查看当天贡献。</div><div class="activity-legend"><span>贡献强度</span><span>少</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>多</span></div><div class="monthly-heading"><h3>月度趋势</h3><span>按贡献次数汇总</span></div><div id="monthly-chart" class="monthly-chart"></div><details id="monthly-details" hidden><summary>查看月度数据表</summary><table><caption>近一年各月贡献次数（首尾月份可能不足整月）</caption><thead><tr><th scope="col">月份</th><th scope="col">贡献次数</th></tr></thead><tbody id="monthly-table"></tbody></table></details><p class="activity-status" id="activity-status" role="status">正在连接数据源…</p></div><p class="activity-note">统计口径为 GitHub 个人主页贡献，包含符合条件的代码提交、PR、Issue 等，并非仅计算 commit；私有活动依账号公开设置显示。数据由 <a href="https://github.com/grubersjoe/github-contributions-api" target="_blank" rel="noopener noreferrer">GitHub Contributions API</a> 读取，可能缓存约 1 小时。<a href="https://github.com/Gitpilotlee" target="_blank" rel="noopener noreferrer">查看 GitHub 原始记录 ↗</a></p></div></section>
+    <section class="projects section wrap" id="projects"><div class="section-index">03 / OPEN SOURCE</div><div class="projects-content"><div class="section-heading"><div><h2>项目与探索<span class="accent">。</span></h2><p>公开仓库，持续连接新的可能。</p></div><a class="small-link" href="https://github.com/Gitpilotlee?tab=repositories" target="_blank" rel="noopener noreferrer">全部仓库 ↗</a></div><div class="project-tools"><div class="filters" role="group" aria-label="仓库类型"><button class="active" data-filter="all" aria-pressed="true">全部项目</button><button data-filter="original" aria-pressed="false">原创仓库</button><button data-filter="fork" aria-pressed="false">Fork</button></div><span class="source-label">SOURCE: GITHUB</span></div><div id="project-list" class="project-list" aria-live="polite"><div class="project-state"><span class="state-mark">↻</span><h3>正在连接公开仓库</h3><p>从 GitHub 获取最新项目资料…</p></div></div><div class="project-footnote"><span class="status-light"></span><span id="sync-status">正在读取 GitHub 公开数据</span><button id="retry" class="retry">重新读取 ↻</button></div></div></section>
+    <section id="contact" class="contact wrap"><div class="section-index">04 / SAY HELLO</div><p>下一次连接，从这里开始。</p><a class="contact-title" href="https://github.com/Gitpilotlee" target="_blank" rel="noopener noreferrer">Let's connect<span>↗</span></a><div class="contact-bottom"><span>找到我，查看代码，交流想法。</span><a href="https://github.com/Gitpilotlee" target="_blank" rel="noopener noreferrer">github.com/Gitpilotlee ↗</a></div></section>
+  </main>
+  <footer class="wrap"><a class="wordmark" href="#">G<span class="dot">.</span></a><span>© <span id="year">2026</span> Gitpilotlee</span><a href="#">回到顶部 ↑</a></footer>
+</body>
+</html>
