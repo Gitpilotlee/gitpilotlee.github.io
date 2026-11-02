@@ -137,7 +137,8 @@ function renderContributions(days) {
     const cell = element('button', 'calendar-day');
     cell.dataset.level = String(day.level); cell.tabIndex = index === days.length - 1 ? 0 : -1;
     const description = `${day.date}：${day.count} 次贡献`;
-    cell.title = description; cell.setAttribute('aria-label', description);
+    cell.setAttribute('aria-label', description);
+    cell.style.setProperty('--enter-delay', `${Math.floor((offset + index) / 7) * 16}ms`);
     const select = () => {
       document.getElementById('day-detail').textContent = description;
       cells.forEach(item => { item.classList.toggle('selected', item === cell); item.tabIndex = item === cell ? 0 : -1; });
@@ -150,18 +151,22 @@ function renderContributions(days) {
     });
     return cell;
   });
+  const firstActive = days.findIndex(day => day.count > 0);
+  if (firstActive >= 0) { cells[firstActive].classList.add('first-contribution'); cells[firstActive].setAttribute('aria-label', `${days[firstActive].date}：${days[firstActive].count} 次贡献，近一年首次贡献`); }
   grid.append(...cells); calendar.append(labels, grid); scroll.append(calendar); activityChart.replaceChildren(scroll);
-  document.getElementById('day-detail').textContent = `最近一天 · ${days.at(-1).date}：${days.at(-1).count} 次贡献`;
+  installCalendarInspector(scroll, grid, cells, days, offset);
+  document.getElementById('day-detail').textContent = firstActive >= 0 ? `✦ 近一年首次贡献 · ${days[firstActive].date}：${days[firstActive].count} 次贡献` : '近一年暂无贡献记录。移动鼠标或使用方向键查看每日记录。';
   const monthly = document.getElementById('monthly-chart');
   const table = document.getElementById('monthly-table'); monthly.replaceChildren(); table.replaceChildren();
   const max = Math.max(1, ...stats.months.values());
   for (const [month, count] of stats.months) {
-    const column = element('div', 'month-column'); column.title = `${month}：${count} 次贡献`;
+    const column = element('div', 'month-column'); column.style.setProperty('--enter-delay', `${stats.months.size ? Array.from(stats.months.keys()).indexOf(month) * 65 : 0}ms`); column.title = `${month}：${count} 次贡献`;
     const barTrack = element('div', 'month-track'); const bar = element('div', 'month-bar'); bar.style.height = `${count / max * 100}%`; barTrack.append(bar);
     column.append(element('span', 'month-value', String(count)), barTrack, element('span', 'month-label', month.slice(5))); monthly.append(column);
     const row = element('tr'); row.append(element('th', '', month), element('td', '', String(count))); table.append(row);
   }
   document.getElementById('monthly-details').hidden = false;
+  revealWhenVisible(document.querySelector('.activity-panel')); 
 }
 async function loadActivity() {
   if (activityLoading) return;
@@ -190,3 +195,95 @@ async function loadActivity() {
 }
 activityRefresh.addEventListener('click', loadActivity);
 loadActivity();
+
+// Reveal only when the visitor reaches the section; reduced-motion stays static.
+function revealWhenVisible(target) {
+  if (!target) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
+    target.classList.add('is-revealed'); return;
+  }
+  target.classList.remove('is-revealed'); target.classList.add('motion-ready');
+  const observer = new IntersectionObserver(entries => {
+    if (entries.some(entry => entry.isIntersecting)) { target.classList.add('is-revealed'); observer.disconnect(); }
+  }, { threshold: 0.12 });
+  observer.observe(target);
+}
+document.querySelectorAll('.reveal-on-scroll').forEach(revealWhenVisible);
+
+let cleanupCalendarInspector = () => {};
+function installCalendarInspector(scroll, grid, cells, days, offset) {
+  cleanupCalendarInspector();
+  document.getElementById('calendar-inspector')?.remove();
+  const inspector = element('div', 'calendar-inspector'); inspector.id = 'calendar-inspector'; inspector.hidden = true; inspector.setAttribute('aria-hidden', 'true');
+  const lens = element('div', 'inspector-lens');
+  const sample = Array.from({ length: 9 }, () => element('i'));
+  lens.append(...sample);
+  const label = element('div', 'inspector-label');
+  const dateLabel = element('strong'); const countLabel = element('span'); label.append(dateLabel, countLabel);
+  inspector.append(lens, label); document.body.append(inspector);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let active = -1, affected = [], raf = 0, pending = null;
+  const reset = () => {
+    affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.classList.remove('inspected'); });
+    affected = [];
+  };
+  const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; active = -1; reset(); };
+  const inspect = (index, x, y) => {
+    if (index < 0 || index >= days.length) { hide(); return; }
+    if (active !== index) {
+      reset(); active = index;
+      const day = days[index]; const position = index + offset;
+      const column = Math.floor(position / 7), row = position % 7;
+      dateLabel.textContent = day.date;
+      countLabel.textContent = `${day.count} 次贡献${cells[index].classList.contains('first-contribution') ? ' · 首次贡献' : ''}`;
+      document.getElementById('day-detail').textContent = `${day.date}：${day.count} 次贡献`;
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const otherRow = row + dy, otherColumn = column + dx;
+          const otherIndex = otherColumn * 7 + otherRow - offset;
+          const valid = otherRow >= 0 && otherRow < 7 && otherColumn >= 0 && otherIndex >= 0 && otherIndex < days.length;
+          const dot = sample[n++]; dot.dataset.level = valid ? String(days[otherIndex].level) : 'empty';
+          dot.classList.toggle('center', dx === 0 && dy === 0);
+          if (valid) {
+            const cell = cells[otherIndex]; affected.push(cell);
+            if (!reduced.matches) {
+              cell.style.setProperty('--push-x', `${dx * 3}px`);
+              cell.style.setProperty('--push-y', `${dy * 3}px`);
+              cell.style.setProperty('--cell-scale', dx === 0 && dy === 0 ? '1.38' : '.88');
+            }
+          }
+        }
+      }
+      cells[index].classList.add('inspected');
+    }
+    inspector.hidden = false;
+    inspector.style.left = `${Math.max(8, Math.min(window.innerWidth - 190, x + 21))}px`;
+    inspector.style.top = `${Math.max(8, Math.min(window.innerHeight - 138, y - 105))}px`;
+  };
+  scroll.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch') return;
+    pending = { x: event.clientX, y: event.clientY };
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0; if (!pending) return;
+      const { x, y } = pending; const rect = grid.getBoundingClientRect();
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) { hide(); return; }
+      const columns = Math.ceil((offset + days.length) / 7);
+      const col = Math.min(columns - 1, Math.floor((x - rect.left) / (rect.width / columns)));
+      const row = Math.min(6, Math.floor((y - rect.top) / (rect.height / 7)));
+      inspect(col * 7 + row - offset, x, y);
+    });
+  });
+  window.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('resize', hide, { passive: true });
+  cleanupCalendarInspector = () => { hide(); window.removeEventListener('scroll', hide); window.removeEventListener('resize', hide); };
+  scroll.addEventListener('pointerleave', hide);
+  scroll.addEventListener('scroll', hide, { passive: true });
+  grid.addEventListener('focusin', event => {
+    const index = cells.indexOf(event.target);
+    if (index >= 0) { const rect = cells[index].getBoundingClientRect(); inspect(index, rect.right, rect.top); }
+  });
+  grid.addEventListener('focusout', event => { if (!grid.contains(event.relatedTarget)) hide(); });
+  grid.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+}
