@@ -111,3 +111,15 @@ html.arrow-navigation{scroll-behavior:auto!important}.project-launch-arrow{displ
 #projects.has-arrow-arrival::after,.navigation-flight{display:none!important}
 @media(max-width:700px){.calendar-inspector.cursor-lens{width:88px;height:88px}}
 @media(prefers-reduced-motion:reduce){.mug-scene.is-rocking{animation:none}.lens-info{transition:none}.calendar-day,.cursor-lens .lens-copy .calendar-day{transform:none!important;transition:none!important}}
+
+/* Particle data morphing and softer calendar pixels. */
+#activity .activity-summary.particle-summary{display:block;position:relative;min-height:100px}
+.particle-summary-canvas{display:block;width:100%;height:100px;pointer-events:none}
+.particle-summary-readable{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.particle-summary-readable.particle-summary-fallback{position:static;width:auto;height:auto;margin:0;clip:auto;white-space:normal;line-height:2;color:var(--ink)}
+.calendar-day,.calendar-blank,.activity-legend i,.cursor-lens .calendar-day{border-radius:3px}
+body.dark{--heat0:#142d25;--heat1:#245c40;--heat2:#358656;--heat3:#56b875;--heat4:#9be6ac}
+body.dark .month-bar{background:var(--heat3)}body.dark .calendar-day.inspected{outline-color:#64bd85;box-shadow:none}
+body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-color:#9be6ac}
+.lens-info{display:none!important}
+@media(max-width:700px){.cup-hero .hero-layout{display:flex;flex-direction:column;gap:32px;align-items:stretch;padding-top:18px}.cup-hero .cup-visual{order:-1;margin-top:0}.cup-hero .hero-copy{order:0;align-self:stretch}.cup-hero .mug-scene{width:100%;max-width:340px;margin-inline:auto}.cup-hero .cup-visual figcaption{margin-top:-4px}.cup-hero .hero-copy h1{font-size:76px}.cup-hero .hero-copy .intro{margin-top:22px}#activity .activity-summary.particle-summary{min-height:90px}.calendar-day,.calendar-blank,.cursor-lens .calendar-day{border-radius:2.5px}}

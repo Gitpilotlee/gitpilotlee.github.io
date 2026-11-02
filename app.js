@@ -105,6 +105,7 @@ const activityChart = document.getElementById('activity-chart');
 const activityStatus = document.getElementById('activity-status');
 const activityRefresh = document.getElementById('refresh-activity');
 let activityLoading = false;
+let particleSummary = null;
 function summarizeContributions(days) {
   const months = new Map();
   let total = 0, active = 0, streak = 0, longest = 0;
@@ -119,10 +120,9 @@ function summarizeContributions(days) {
 function renderContributions(days) {
   const stats = summarizeContributions(days);
   const summary = document.getElementById('activity-summary');
-  summary.replaceChildren(...[[stats.total, '年度贡献'], [stats.active, '活跃天数'], [stats.longest, '最长连续活跃 / 天']].map(([value, label]) => {
-    const item = element('div', 'activity-stat'); item.append(element('strong', '', String(value)), element('span', '', label)); return item;
-  }));
   summary.hidden = false;
+  particleSummary?.destroy();
+  particleSummary = createParticleSummary(summary, stats);
   document.getElementById('activity-range').textContent = `${days[0].date} — ${days.at(-1).date}`;
   const offset = new Date(days[0].date + 'T00:00:00Z').getUTCDay();
   const weeks = Math.ceil((offset + days.length) / 7);
@@ -149,6 +149,7 @@ function renderContributions(days) {
     cell.style.setProperty('--enter-delay', `${Math.floor((offset + index) / 7) * 16}ms`);
     const select = () => {
       document.getElementById('day-detail').textContent = description;
+      particleSummary?.select(day.count > 0 ? day : null);
       cells.forEach(item => { item.classList.toggle('selected', item === cell); item.tabIndex = item === cell ? 0 : -1; });
     };
     cell.addEventListener('click', select);
@@ -228,24 +229,20 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   const copy = calendar.cloneNode(true); copy.classList.add('lens-copy'); copy.setAttribute('inert', '');
   copy.querySelectorAll('button').forEach(cell => { cell.tabIndex = -1; cell.removeAttribute('aria-label'); });
   const center = element('span', 'lens-reticle');
-  const info = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); info.setAttribute('viewBox', '0 0 144 144'); info.setAttribute('class', 'lens-info');
-  info.innerHTML = '<defs><path id="lens-info-path" d="M72 17a55 55 0 1 1-.01 0"/></defs><text><textPath href="#lens-info-path" startOffset="0" textLength="336" lengthAdjust="spacingAndGlyphs"></textPath></text>';
-  const orbitText = info.querySelector('textPath');
   const lensCells = Array.from(copy.querySelectorAll('.calendar-day'));
-  glass.append(copy); inspector.append(glass, center, info); document.body.append(inspector);
+  glass.append(copy); inspector.append(glass, center); document.body.append(inspector);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   let active = -1, affected = [], raf = 0, pending = null;
   const reset = () => {
     affected.forEach(cell => { cell.style.removeProperty('--push-x'); cell.style.removeProperty('--push-y'); cell.style.removeProperty('--cell-scale'); cell.style.removeProperty('--jelly-angle'); cell.classList.remove('inspected'); }); affected = [];
   };
-  const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; scroll.classList.remove('lens-active'); active = -1; reset(); };
+  const hide = () => { if (raf) cancelAnimationFrame(raf); raf = 0; pending = null; inspector.hidden = true; scroll.classList.remove('lens-active'); active = -1; reset(); particleSummary?.select(null); };
   const inspect = (index, x, y, pointer = false) => {
     if (active !== index) {
-      reset(); active = index; inspector.classList.remove('has-contribution');
+      reset(); active = index; particleSummary?.select(index >= 0 && index < days.length && days[index].count > 0 ? days[index] : null);
       if (index >= 0 && index < days.length) {
         const day = days[index], position = index + offset, column = Math.floor(position / 7), row = position % 7;
         document.getElementById('day-detail').textContent = `${day.date}：${day.count} 次贡献${cells[index].classList.contains('first-contribution') ? ' · 近一年首次贡献' : ''}`;
-        if (day.count > 0) { inspector.classList.add('has-contribution'); orbitText.textContent = `${day.date} · ${day.count} 次贡献 · ${day.date} · ${day.count} 次贡献 ·`; } else orbitText.textContent = '';
         for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
           const r = row + dy, c = column + dx, i = c * 7 + r - offset;
           if (r < 0 || r > 6 || c < 0 || i < 0 || i >= days.length) continue;
@@ -322,3 +319,92 @@ function moveFilterDroplet(button, animate = true) {
 moveFilterDroplet(filterGroup.querySelector('.active'), false);
 new ResizeObserver(() => moveFilterDroplet(filterGroup.querySelector('.active'), false)).observe(filterGroup);
 document.fonts?.ready.then(() => moveFilterDroplet(filterGroup.querySelector('.active'), false));
+
+// Sample live text into dots, then spring the same particles into the new data.
+function createParticleSummary(container, stats) {
+  const canvas = element('canvas', 'particle-summary-canvas'); canvas.setAttribute('aria-hidden', 'true');
+  const readable = element('div', 'particle-summary-readable'); readable.setAttribute('role', 'status'); readable.setAttribute('aria-live', 'polite');
+  container.replaceChildren(canvas, readable); container.classList.add('particle-summary');
+  const context = canvas.getContext('2d');
+  const mask = document.createElement('canvas'), maskContext = mask.getContext('2d', { willReadFrequently: true });
+  let selection = null, key = '', width = 0, height = 100, frame = 0, particles = [], disposed = false, visible = true, lastTime = 0;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const fields = () => selection ? [[selection.date, '贡献日期'], [String(selection.count), '当天贡献'], ['活跃', '活动状态']] : [[String(stats.total), '年度贡献'], [String(stats.active), '活跃天数'], [String(stats.longest), '最长连续活跃 / 天']];
+  function paint() {
+    if (!context) return;
+    context.clearRect(0, 0, width, height);
+    const colors = getComputedStyle(document.body), ink = colors.getPropertyValue('--ink').trim(), muted = colors.getPropertyValue('--muted').trim();
+    for (const p of particles) {
+      if (p.alpha < .015) continue;
+      context.globalAlpha = Math.max(0, Math.min(1, p.alpha)); context.fillStyle = p.label ? muted : ink;
+      context.beginPath(); context.arc(p.x, p.y, p.label ? .55 : .95, 0, Math.PI * 2); context.fill();
+    }
+    context.globalAlpha = 1;
+  }
+  function tick(now) {
+    frame = 0; if (disposed || !visible) return;
+    const dt = Math.min(2, Math.max(.5, (now - (lastTime || now - 16.7)) / 16.7)); lastTime = now;
+    let energy = 0;
+    for (const p of particles) {
+      p.vx = (p.vx + (p.tx - p.x) * .038 * dt) * Math.pow(.73, dt);
+      p.vy = (p.vy + (p.ty - p.y) * .038 * dt) * Math.pow(.73, dt);
+      p.x += p.vx * dt; p.y += p.vy * dt; p.alpha += (p.targetAlpha - p.alpha) * .13 * dt;
+      energy += Math.abs(p.tx - p.x) + Math.abs(p.ty - p.y) + Math.abs(p.targetAlpha - p.alpha) * 5;
+    }
+    paint();
+    if (energy > .18 * Math.max(1, particles.length)) frame = requestAnimationFrame(tick);
+    else { particles = particles.filter(p => p.targetAlpha > 0); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = p.targetAlpha; p.vx = p.vy = 0; }); paint(); }
+  }
+  function start() { if (!frame && visible && !disposed) { lastTime = 0; frame = requestAnimationFrame(tick); } }
+  function regroup(force = false) {
+    const nextKey = selection?.date || 'annual';
+    if (!force && nextKey === key) return;
+    key = nextKey; container.dataset.mode = selection ? 'day' : 'annual';
+    const values = fields(); readable.textContent = values.map(([value, label]) => `${label}：${value}`).join('；');
+    width = Math.max(1, container.clientWidth); height = width < 500 ? 90 : 100;
+    canvas.style.height = `${height}px`; const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
+    if (!context || !maskContext) { canvas.hidden = true; readable.classList.add('particle-summary-fallback'); return; }
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    mask.width = Math.ceil(width); mask.height = height;
+    const targets = [], gap = width < 500 ? 12 : 50, column = (width - gap * 2) / 3;
+    const sampleText = (text, x, y, size, label) => {
+      maskContext.clearRect(0, 0, width, height);
+      maskContext.fillStyle = '#fff'; maskContext.textBaseline = 'top';
+      maskContext.font = `${label ? 400 : 500} ${size}px "Arial", "Noto Sans SC", sans-serif`;
+      const textWidth = maskContext.measureText(text).width;
+      if (textWidth > column - 4) { size *= (column - 4) / textWidth; maskContext.font = `${label ? 400 : 500} ${size}px "Arial", "Noto Sans SC", sans-serif`; }
+      maskContext.fillText(text, x, y);
+      const pixels = maskContext.getImageData(0, 0, mask.width, height).data, step = label ? 1.1 : 2.1;
+      for (let py = Math.max(0, y); py < Math.min(height, y + size * 1.45); py += step) {
+        for (let px = x; px < Math.min(width, x + column); px += step) {
+          const alpha = pixels[(Math.floor(py) * mask.width + Math.floor(px)) * 4 + 3];
+          if (alpha > 100) targets.push({ x: px, y: py, label });
+        }
+      }
+    };
+    values.forEach(([value, label], index) => {
+      const x = index * (column + gap);
+      sampleText(value, x, 4, width < 500 ? 32 : 42, false);
+      sampleText(label, x, width < 500 ? 58 : 66, width < 500 ? 11 : 12, true);
+    });
+    const oldLength = particles.length;
+    targets.forEach((target, i) => {
+      let p = particles[i];
+      if (!p) { p = { x: target.x + (Math.random() - .5) * 65, y: target.y + (Math.random() - .5) * 38, alpha: 0, vx: 0, vy: 0 }; particles[i] = p; }
+      p.tx = target.x; p.ty = target.y; p.label = target.label; p.targetAlpha = 1;
+      if (!reduced.matches && oldLength > 0) { p.vx += (Math.random() - .5) * 4; p.vy += (Math.random() - .5) * 4; }
+    });
+    for (let i = targets.length; i < particles.length; i++) { particles[i].targetAlpha = 0; particles[i].tx = particles[i].x + (Math.random() - .5) * 60; particles[i].ty = particles[i].y - 20; }
+    if (reduced.matches) { particles = particles.slice(0, targets.length); particles.forEach(p => { p.x = p.tx; p.y = p.ty; p.alpha = 1; }); paint(); } else start();
+  }
+  const resize = new ResizeObserver(() => { const nextWidth = Math.max(1, container.clientWidth); if (Math.abs(nextWidth - width) > 1) regroup(true); }); resize.observe(container);
+  const themeChange = new MutationObserver(paint); themeChange.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  const view = 'IntersectionObserver' in window ? new IntersectionObserver(entries => { visible = entries[0].isIntersecting; if (visible) start(); else { cancelAnimationFrame(frame); frame = 0; } }) : null;
+  view?.observe(container);
+  regroup(true);
+  return {
+    select(day) { const next = day && day.count > 0 ? day : null; if ((next?.date || 'annual') === key) return; selection = next; regroup(); },
+    destroy() { disposed = true; cancelAnimationFrame(frame); resize.disconnect(); themeChange.disconnect(); view?.disconnect(); }
+  };
+}
