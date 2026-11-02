@@ -199,3 +199,11 @@ body.dark .lens-glass{border-color:#65d58b80;box-shadow:inset 2px 2px 7px #caffd
 .hero-copy .hello-flow canvas{height:225px;opacity:.88;mask-image:linear-gradient(to bottom,transparent 0%,#000 25%,#000 76%,transparent 100%),linear-gradient(to right,transparent 0%,#000 12%,#000 74%,transparent 100%);mask-composite:intersect}
 .hero-copy .hello-flow-label{display:none}
 @media(max-width:700px){.hero-copy .hello-flow{width:calc(100% + 20px);margin-left:-10px;height:185px;margin-top:16px}.hero-copy .hello-flow canvas{height:185px}}
+/* The code stream is a background layer, not a separate block beneath the copy. */
+.cup-hero .hero-layout{position:relative;isolation:isolate}
+.cup-hero .hero-copy{position:static}
+.hero-copy .hello-flow{position:absolute;z-index:-1;left:-24px;top:0;bottom:0;width:calc((100% - 48px) / 2.05 + 24px);height:auto;margin:0;pointer-events:none;contain:paint}
+.hero-copy .hello-flow canvas{width:100%;height:100%;opacity:.24;mask-image:linear-gradient(to bottom,transparent 0%,#000 16%,#000 84%,transparent 100%),linear-gradient(to right,transparent 0%,#000 10%,#000 55%,transparent 100%);mask-composite:intersect}
+body.dark .hero-copy .hello-flow canvas{opacity:.18}
+@media(max-width:1000px) and (min-width:701px){.hero-copy .hello-flow{width:calc((100% - 30px) / 2.05 + 24px)}}
+@media(max-width:700px){.cup-hero .hero-copy{position:relative;isolation:isolate}.hero-copy .hello-flow{left:-10px;top:-20px;bottom:-24px;width:calc(100% + 20px);height:auto;margin:0}.hero-copy .hello-flow canvas{height:100%}}
