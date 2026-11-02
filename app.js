@@ -13,7 +13,7 @@ function setTheme(dark) {
   theme.setAttribute('aria-pressed', String(dark));
   theme.textContent = dark ? '☾' : '☀';
   theme.title = dark ? '切换为白天主题' : '切换为夜晚主题';
-  document.querySelector('meta[name="theme-color"]').content = dark ? '#0b0f17' : '#ffffff';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#080e0b' : '#ffffff';
 }
 // Each new visit starts in daylight; the toggle changes only this page session.
 setTheme(false);
@@ -314,6 +314,7 @@ function assignFilterTargets() {
 function paintFilter(now) {
   filterFrame = 0; if (!filterContext) return;
   filterContext.clearRect(0, 0, filterWidth, filterHeight);
+  const themeColors = getComputedStyle(document.body), cloudColor = themeColors.getPropertyValue('--lime').trim(), attractColor = themeColors.getPropertyValue('--particle-attract').trim();
   let energy = 0;
   for (const p of filterCloud) {
     if (filterReduced.matches) { p.x = p.tx; p.y = p.ty; } else {
@@ -321,7 +322,7 @@ function paintFilter(now) {
       p.x += p.vx; p.y += p.vy;
     }
     energy += Math.abs(p.tx - p.x) + Math.abs(p.ty - p.y);
-    filterContext.fillStyle = p.attracted ? '#6097ff' : '#2563eb';
+    filterContext.fillStyle = p.attracted ? attractColor : cloudColor;
     filterContext.globalAlpha = p.attracted ? .85 : .92;
     filterContext.beginPath(); filterContext.arc(p.x, p.y, p.r, 0, Math.PI * 2); filterContext.fill();
   }
@@ -349,6 +350,7 @@ filterGroup.addEventListener('focusout', event => { if (!filterGroup.contains(ev
 new ResizeObserver(resizeFilter).observe(filterGroup);
 document.fonts?.ready.then(resizeFilter);
 resizeFilter();
+new MutationObserver(startFilter).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 // Sample live text into dots, then spring the same particles into the new data.
 function createParticleSummary(container, stats) {
@@ -488,3 +490,51 @@ document.querySelectorAll('details').forEach(details => {
     animation.onfinish = () => { details.open = expanded; animation.cancel(); animation = null; };
   });
 });
+
+// Bitmap code drifts at 45° within the left column, independent of the porcelain scene.
+(function installHelloFlow() {
+  const canvas = document.getElementById('hello-flow'); if (!canvas) return;
+  const context = canvas.getContext('2d'); if (!context) return;
+  const examples = [
+    ['Python', 'print("Hello, world!")'], ['JavaScript', 'console.log("Hello, world!")'],
+    ['TypeScript', 'console.log("Hello, world!")'], ['Rust', 'println!("Hello, world!");'],
+    ['Go', 'fmt.Println("Hello, world!")'], ['Swift', 'print("Hello, world!")'],
+    ['C++', 'cout << "Hello, world!";'], ['Java', 'System.out.println("Hello, world!");']
+  ];
+  const sprites = examples.map(([language, code]) => {
+    const bitmap = document.createElement('canvas'), ctx = bitmap.getContext('2d');
+    bitmap.width = (language.length + code.length + 5) * 7; bitmap.height = 15;
+    ctx.font = 'bold 11px monospace'; ctx.textBaseline = 'top'; ctx.fillStyle = '#fff'; ctx.fillText(`${language} / ${code}`, 0, 1);
+    // Quantize the glyph edges to a hard bitmap rather than antialiased small type.
+    const data = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    for (let i = 3; i < data.data.length; i += 4) data.data[i] = data.data[i] > 90 ? 255 : 0;
+    ctx.putImageData(data, 0, 0); return bitmap;
+  });
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let width = 0, height = 0, frame = 0, visible = true, time = 0, last = 0, color = '';
+  function paint(now) {
+    frame = 0; if (!visible) return;
+    if (!reduced.matches && last) time += Math.min(50, now - last) / 1000; last = now;
+    context.clearRect(0, 0, width, height); context.imageSmoothingEnabled = false;
+    context.save(); context.translate(width / 2, height / 2); context.rotate(-Math.PI / 4);
+    const period = 760, travel = time * 17;
+    for (let row = -4; row <= 4; row++) {
+      const sprite = sprites[(row + 4) % sprites.length];
+      const offset = ((travel + row * 167) % period + period) % period;
+      context.globalAlpha = row % 2 ? .48 : .78;
+      for (let repeat = -2; repeat <= 1; repeat++) context.drawImage(sprite, -offset + repeat * period, row * 57, sprite.width * 1.75, sprite.height * 1.75);
+    }
+    context.restore(); context.globalAlpha = 1;
+    context.globalCompositeOperation = 'source-in'; context.fillStyle = color; context.fillRect(0, 0, width, height); context.globalCompositeOperation = 'source-over';
+    if (!reduced.matches) frame = requestAnimationFrame(paint);
+  }
+  function start() { if (!frame && visible) { last = 0; frame = requestAnimationFrame(paint); } }
+  function updateColor() { color = getComputedStyle(document.body).getPropertyValue('--lime').trim(); start(); }
+  const resize = new ResizeObserver(() => {
+    const rect = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2); width = rect.width; height = rect.height;
+    canvas.width = width * dpr; canvas.height = height * dpr; context.setTransform(dpr, 0, 0, dpr, 0, 0); updateColor();
+  }); resize.observe(canvas);
+  new MutationObserver(updateColor).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  new IntersectionObserver(entries => { visible = entries[0].isIntersecting; if (visible) start(); else { cancelAnimationFrame(frame); frame = 0; last = 0; } }).observe(canvas);
+  reduced.addEventListener('change', () => { cancelAnimationFrame(frame); frame = 0; start(); });
+})();

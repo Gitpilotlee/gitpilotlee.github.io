@@ -159,3 +159,38 @@ body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-c
 .filters button:hover,.filters button:focus-visible{color:var(--lime)}
 .project-list{transition:color .3s ease}
 @media(prefers-reduced-motion:reduce){.particle-summary-canvas{opacity:1!important}.particle-summary-solid .summary-value{visibility:hidden}.month-bar,.calendar-day,.filters button{transition:none}}
+
+/* Readable type, blue daylight and green after dark. */
+body:not(.dark){--particle-attract:#75a7ff}
+body.dark{--bg:#080e0b;--ink:#e5f4e9;--muted:#a0b5a6;--line:#263b2e;--panel:#101d15;--white:#14241a;--lime:#65d58b;--particle-attract:#a3efbd;background:var(--bg)}
+body{font-size:17px}.nav nav{font-size:16px}.nav nav a{padding-block:8px}
+.cup-hero .hello{font-size:19px}.cup-hero .hero-copy .intro{font-size:17px;line-height:1.9}
+.about-bottom p{font-size:17px;max-width:580px}.section-heading p,.project-card p{font-size:16px}
+.text-link,.small-link,.cup-hero .hero-copy .text-link{font-size:15px}
+.section-index,.hero-top,.cup-hero .hero-top{font-size:12px}
+.hero-bottom,.cup-hero .hero-bottom,.source-label,.project-footnote,.repo-meta{font-size:12px}
+.cup-visual figcaption,.cup-kicker,.language-source{font-size:12px}.language-source p{font-size:14px;line-height:1.9}
+.activity-note,.activity-status,.day-detail{font-size:13px;line-height:1.9}.activity-panel-top{font-size:12px}
+.activity-legend,.monthly-heading>span,.month-label,.calendar-months{font-size:12px}.calendar-months{height:29px}
+.monthly-heading h3{font-size:16px}#monthly-details{font-size:14px}#monthly-details td,#monthly-details th{padding:11px}
+.summary-label{font-size:14px}.refresh-activity,.retry{font-size:13px}
+.filters button{font-size:14px;padding:11px 17px;font-weight:550;min-height:42px}
+.filters button.active{color:#1746af!important;text-shadow:none!important;background:#fff!important;box-shadow:inset 0 0 0 2px #2563eb;border-radius:8px;font-weight:700}
+.filters button:not(.active){color:var(--muted);text-shadow:0 0 4px var(--bg),0 0 5px var(--bg)}
+.filter-particles{inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px)}
+body.dark .filters button.active{color:#b7f4ca!important;background:#132b1c!important;box-shadow:inset 0 0 0 2px var(--lime)}
+body.dark .cup-hero .hero-copy .primary,body.dark .refresh-activity{background:var(--lime);border-color:var(--lime);color:#07130b}
+body.dark .cup-hero .hero-copy .primary:hover,body.dark .refresh-activity:hover{background:#8ae6a8;border-color:#8ae6a8}
+body.dark .cup-hero .hero-copy .text-link{color:var(--muted)}
+body.dark .contact{background:var(--panel);color:var(--ink)}body.dark .contact-title{border-color:var(--line)}body.dark .contact-bottom{color:var(--muted)}
+body.dark .activity-beacon{animation-name:beacon-breathe-green}
+@keyframes beacon-breathe-green{0%,100%{text-shadow:0 0 3px #65d58b40,0 0 10px #65d58b20}50%{text-shadow:0 0 9px #65d58bbb,0 0 23px #65d58b77}}
+.hello-flow{width:100%;max-width:500px;height:175px;margin-top:24px;position:relative;overflow:hidden;isolation:isolate;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.hello-flow canvas{width:100%;height:155px;display:block;image-rendering:pixelated;pointer-events:none;opacity:.8}
+.hello-flow-label{position:absolute;bottom:0;right:18px;font:11px monospace;letter-spacing:1px;color:var(--muted)}
+.contact-bottom,footer{font-size:13px}.back-cup figcaption{font-size:10px}
+@media(max-width:700px){.nav nav{font-size:14px}.cup-hero .hero-top{font-size:10px}.cup-hero .hero-copy .intro{font-size:17px}.cup-hero .hero-bottom{font-size:10px}.cup-visual figcaption{font-size:12px}.hello-flow{height:125px;max-width:340px;margin-top:18px}.hello-flow canvas{height:105px}.hello-flow-label{font-size:9px}.section-index{font-size:12px}.about-bottom p{font-size:16px}.activity-panel-top,.calendar-months,.activity-legend{font-size:11px}.calendar-months{height:27px}.month-label{font-size:11px}.summary-label{font-size:12px}.filters button{font-size:13px;padding-inline:13px}.source-label{display:none}.contact-bottom{font-size:12px;flex-wrap:wrap}.activity-note{font-size:12px}.project-footnote{font-size:11px}}
+.cup-hero .hero-copy{min-width:0}.hero-copy .hello-flow{max-width:100%;height:150px;margin-top:32px;contain:paint}.hero-copy .hello-flow canvas{height:130px}.hero-copy .hello-flow-label{right:10px}
+@media(max-width:700px){.hero-copy .hello-flow{height:125px;margin-top:28px}.hero-copy .hello-flow canvas{height:105px}}
+.summary-label{max-width:100%;white-space:normal}
+body.dark .lens-glass{border-color:#65d58b80;box-shadow:inset 2px 2px 7px #caffdb22,inset -2px -2px 8px #65d58b18,0 2px 10px #0003}
