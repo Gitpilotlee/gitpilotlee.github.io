@@ -15,7 +15,7 @@
 - index.html：个人介绍和区块结构
 - style.css：日夜主题与布局
 - app.js：仓库、贡献记录、主题切换
-- assets/language-heat-mug.png：原创陶瓷杯图片
+- assets/language-heat-mug-512.webp：原创陶瓷杯图片
 
 杯身为 TypeScript、Python、JavaScript 的艺术热力图，依据 GitHub Octoverse 2026；点击页面上的语言热度依据可查看来源。
 

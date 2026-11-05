@@ -7,7 +7,14 @@ let filter = 'all';
 let loading = false;
 document.getElementById('year').textContent = new Date().getFullYear();
 const theme = document.getElementById('theme');
+const nightMug = document.querySelector('.mug-night');
+nightMug.addEventListener('load', () => nightMug.parentElement.classList.add('night-ready'));
+
 function setTheme(dark) {
+  if (dark && !nightMug.hasAttribute('src')) {
+    nightMug.srcset = nightMug.dataset.srcset;
+    nightMug.src = nightMug.dataset.src;
+  }
   document.body.classList.toggle('dark', dark);
   theme.setAttribute('aria-label', dark ? '切换浅色模式' : '切换深色模式');
   theme.setAttribute('aria-pressed', String(dark));
@@ -103,6 +110,53 @@ const activityChart = document.getElementById('activity-chart');
 const activityStatus = document.getElementById('activity-status');
 const activityRefresh = document.getElementById('refresh-activity');
 let activityLoading = false;
+const activityCacheKey = `contributions:v1:${username}`;
+const activityCacheLifetime = 24 * 60 * 60 * 1000;
+let activitySnapshot = null;
+
+function validatedActivityDays(records, end) {
+  if (!Array.isArray(records)) throw new Error('format');
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 364);
+  const first = start.toISOString().slice(0, 10);
+  const last = end.toISOString().slice(0, 10);
+  const days = records.filter(day => typeof day?.date === 'string' && day.date >= first && day.date <= last)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (days.length !== 365) throw new Error('incomplete');
+  for (const day of days) {
+    if (day.date !== start.toISOString().slice(0, 10) ||
+        !Number.isInteger(day.count) || day.count < 0 ||
+        !Number.isInteger(day.level) || day.level < 0 || day.level > 4) {
+      throw new Error('invalid contribution');
+    }
+    start.setUTCDate(start.getUTCDate() + 1);
+  }
+  return days;
+}
+
+function restoreActivitySnapshot() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(activityCacheKey));
+    if (!saved) return;
+    const age = Date.now() - saved.savedAt;
+    if (!Number.isFinite(age) || age < 0 || age >= activityCacheLifetime) {
+      localStorage.removeItem(activityCacheKey);
+      return;
+    }
+    const end = new Date(saved.savedAt);
+    end.setUTCHours(0, 0, 0, 0);
+    const days = validatedActivityDays(saved.days, end);
+    renderContributions(days);
+    activitySnapshot = { days, savedAt: saved.savedAt };
+  } catch {
+    // Storage may be unavailable, full, or contain an older format.
+  }
+}
+
+function activitySnapshotTime() {
+  return new Date(activitySnapshot.savedAt).toLocaleString('zh-CN');
+}
+
 let particleSummary = null;
 let monthlyParticles = [];
 function summarizeContributions(days) {
@@ -128,6 +182,10 @@ function renderContributions(days) {
   document.getElementById('activity-range').textContent = `${days[0].date} — ${days.at(-1).date}`;
   const offset = new Date(days[0].date + 'T00:00:00Z').getUTCDay();
   const weeks = Math.ceil((offset + days.length) / 7);
+  const previousScroll = activityChart.querySelector('.calendar-scroll');
+  const previousOffset = previousScroll?.scrollLeft ?? 0;
+  const wasAtLatest = previousScroll &&
+    previousScroll.scrollWidth - previousScroll.clientWidth - previousScroll.scrollLeft < 8;
   const scroll = element('div', 'calendar-scroll');
   const calendar = element('div', 'calendar');
   calendar.style.setProperty('--weeks', weeks);
@@ -164,7 +222,23 @@ function renderContributions(days) {
   });
   const firstActive = days.findIndex(day => day.count > 0);
   if (firstActive >= 0) { cells[firstActive].classList.add('first-contribution'); cells[firstActive].setAttribute('aria-label', `${days[firstActive].date}：${days[firstActive].count} 次贡献，近一年首次贡献`); }
-  grid.append(...cells); calendar.append(labels, grid); scroll.append(calendar); activityChart.replaceChildren(scroll);
+  grid.append(...cells);
+  calendar.append(labels, grid);
+  scroll.append(calendar);
+
+  const navigation = element('div', 'calendar-mobile-nav');
+  const firstWeek = element('button', '', '年初');
+  const recentWeeks = element('button', '', '最近几周');
+  firstWeek.type = recentWeeks.type = 'button';
+  firstWeek.setAttribute('aria-label', '滚动到全年热力图开头');
+  recentWeeks.setAttribute('aria-label', '滚动到最近几周');
+  firstWeek.addEventListener('click', () => { scroll.scrollLeft = 0; });
+  recentWeeks.addEventListener('click', () => { scroll.scrollLeft = scroll.scrollWidth; });
+  navigation.append(element('span', '', '左右滑动查看全年'), firstWeek, recentWeeks);
+  activityChart.replaceChildren(navigation, scroll);
+  if (matchMedia('(max-width: 700px)').matches) {
+    scroll.scrollLeft = !previousScroll || wasAtLatest ? scroll.scrollWidth : previousOffset;
+  }
   installCalendarInspector(scroll, grid, cells, days, offset);
   document.getElementById('day-detail').textContent = firstActive >= 0 ? `✦ 近一年首次贡献 · ${days[firstActive].date}：${days[firstActive].count} 次贡献` : '近一年暂无贡献记录。移动鼠标或使用方向键查看每日记录。';
   const monthly = document.getElementById('monthly-chart');
@@ -189,29 +263,39 @@ function renderContributions(days) {
 async function loadActivity({ force = false } = {}) {
   if (activityLoading) return;
   activityLoading = true; activityRefresh.disabled = true; activityRefresh.textContent = '读取中…';
-  activityStatus.textContent = force ? '正在跳过缓存，读取 GitHub 最新贡献…' : '正在读取 GitHub 贡献日历…';
+  const loadingMessage = force ? '正在跳过缓存，读取 GitHub 最新贡献…' : '正在读取 GitHub 贡献日历…';
+  activityStatus.textContent = activitySnapshot
+    ? `显示上次读取的记录（${activitySnapshotTime()}）。${loadingMessage}`
+    : loadingMessage;
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), force ? 30000 : 15000);
   try {
     const response = await fetch(`https://github-contributions-api.jogruber.de/v4/${username}?y=last`, { signal: controller.signal, ...(force ? { headers: { 'Cache-Control': 'no-cache' }, cache: 'no-store' } : {}) });
     if (!response.ok) throw new Error('request');
     const data = await response.json();
-    if (!Array.isArray(data.contributions)) throw new Error('format');
-    const end = new Date(); end.setUTCHours(0, 0, 0, 0);
-    const start = new Date(end); start.setUTCDate(start.getUTCDate() - 364);
-    const first = start.toISOString().slice(0, 10), last = end.toISOString().slice(0, 10);
-    const days = data.contributions.filter(day => day.date >= first && day.date <= last).sort((a, b) => a.date.localeCompare(b.date));
-    if (days.length !== 365 || new Set(days.map(day => day.date)).size !== 365 || days.some(day => !Number.isInteger(day.count) || day.count < 0 || !Number.isInteger(day.level) || day.level < 0 || day.level > 4)) throw new Error('incomplete');
-    renderContributions(days);
-    activityStatus.textContent = '✓ 已同步近 365 天记录 · ' + new Date().toLocaleString('zh-CN');
+    const savedAt = Date.now();
+    const end = new Date(savedAt);
+    end.setUTCHours(0, 0, 0, 0);
+    const days = validatedActivityDays(data.contributions, end);
+    if (!activitySnapshot || JSON.stringify(days) !== JSON.stringify(activitySnapshot.days)) {
+      renderContributions(days);
+    }
+    activitySnapshot = { days, savedAt };
+    try {
+      localStorage.setItem(activityCacheKey, JSON.stringify(activitySnapshot));
+    } catch {
+      // Rendering also works when storage is disabled.
+    }
+    activityStatus.textContent = '✓ 已读取近 365 天记录 · ' + activitySnapshotTime();
   } catch {
     if (!document.querySelector('.calendar')) {
       activityChart.replaceChildren(element('p', 'activity-placeholder', '暂时无法读取年度活动，请稍后重试。'));
       document.getElementById('day-detail').textContent = '数据不可用时不显示推测数值。';
     }
-    activityStatus.textContent = document.querySelector('.calendar') ? '刷新失败，保留上次成功读取的数据。可稍后重试。' : '数据源暂时不可用。点击“刷新数据”重试，或查看 GitHub 原始记录。';
+    activityStatus.textContent = activitySnapshot ? `更新失败，显示上次读取的记录（${activitySnapshotTime()}）。可稍后重试。` : '数据源暂时不可用。点击“刷新数据”重试，或查看 GitHub 原始记录。';
   } finally { clearTimeout(timer); activityLoading = false; activityRefresh.disabled = false; activityRefresh.textContent = '刷新数据 ↻'; }
 }
 activityRefresh.addEventListener('click', () => loadActivity({ force: true }));
+restoreActivitySnapshot();
 loadActivity();
 
 // Reveal only when the visitor reaches the section; reduced-motion stays static.
