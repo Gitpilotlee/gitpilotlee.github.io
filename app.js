@@ -319,6 +319,7 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
   const calendar = scroll.querySelector('.calendar');
   const inspector = element('div', 'calendar-inspector cursor-lens'); inspector.id = 'calendar-inspector'; inspector.hidden = true; inspector.setAttribute('aria-hidden', 'true');
   const glass = element('div', 'lens-glass');
+  const gutter = parseFloat(getComputedStyle(grid).paddingLeft);
   const copy = calendar.cloneNode(true); copy.classList.add('lens-copy'); copy.setAttribute('inert', '');
   copy.querySelectorAll('button').forEach(cell => { cell.tabIndex = -1; cell.removeAttribute('aria-label'); });
   const center = element('span', 'lens-reticle');
@@ -364,9 +365,14 @@ function installCalendarInspector(scroll, grid, cells, days, offset) {
       const { x, y } = pending, bounds = calendar.getBoundingClientRect(), rect = grid.getBoundingClientRect();
       if (x < bounds.left || x > bounds.right || y < bounds.top || y > bounds.bottom) { hide(); return; }
       const columns = Math.ceil((offset + days.length) / 7);
-      const col = Math.max(0, Math.min(columns - 1, Math.floor((x - rect.left) / (rect.width / columns))));
-      const row = Math.max(0, Math.min(6, Math.floor((y - rect.top) / (rect.height / 7))));
-      inspect(y < rect.top ? -1 : col * 7 + row - offset, x, y, true);
+      const gridX = x - rect.left - gutter;
+      const gridY = y - rect.top - gutter;
+      const gridWidth = rect.width - 2 * gutter;
+      const gridHeight = rect.height - 2 * gutter;
+      const withinGrid = gridX >= 0 && gridX < gridWidth && gridY >= 0 && gridY < gridHeight;
+      const col = Math.floor(gridX / (gridWidth / columns));
+      const row = Math.floor(gridY / (gridHeight / 7));
+      inspect(withinGrid ? col * 7 + row - offset : -1, x, y, true);
     });
   });
   window.addEventListener('scroll', hide, { passive: true }); window.addEventListener('resize', hide, { passive: true });

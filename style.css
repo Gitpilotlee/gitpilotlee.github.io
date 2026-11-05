@@ -127,7 +127,9 @@ body.dark .calendar-day.selected,body.dark .calendar-day:focus-visible{outline-c
 /* Jelly transforms stay inside the calendar's own scrollable width. */
 .calendar-scroll{overflow-x:auto;overflow-y:hidden}
 .calendar:not(.lens-copy){overflow:hidden}
-.calendar-grid{overflow:clip}
+/* Allow the outer ring to fit inside the scrollable calendar. */
+.calendar-grid { overflow: clip; padding: 6px; }
+.calendar-months { padding-inline: 6px; }
 /* Accessible text layer and live particle typography. */
 .particle-summary-solid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:50px;opacity:1;transition:opacity .18s ease;pointer-events:none}
 .summary-field{position:relative;min-width:0;padding-top:4px}
@@ -287,5 +289,12 @@ body:not(.dark) .contact,body.dark .contact{position:relative;isolation:isolate;
 .featured-projects h3 { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 .featured-projects h4 { font-size: 21px; margin: 0; }
 .featured-projects p { color: var(--muted); font-size: 16px; line-height: 1.7; }
-.featured-links { display: flex; flex-wrap: wrap; gap: 16px; color: var(--lime); font-size: 15px; }
+.featured-links { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; color: var(--lime); font-size: 15px; }
 .featured-links a { text-decoration: underline; text-underline-offset: 4px; }
+
+.featured-links .featured-star {
+  border: 1px solid currentColor;
+  padding: 5px 10px;
+  text-decoration: none;
+}
+.featured-star:hover { background: color-mix(in srgb, var(--lime) 8%, transparent); }
